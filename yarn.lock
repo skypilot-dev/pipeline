@@ -1185,6 +1185,11 @@
   dependencies:
     babel-plugin-root-import "^6.6.0"
 
+"@skypilot/common-types@^2.2.1":
+  version "2.2.1"
+  resolved "https://registry.yarnpkg.com/@skypilot/common-types/-/common-types-2.2.1.tgz#2378af62cf4208156e76304ce4d0da046916d9f4"
+  integrity sha512-kW8m4XmtpJBNKV53NzcKdlQztj/y5wB5InIo+XKo/mqvPVu5Nuj0jBz8+5MOrWk+ToCqrJ+7DlUiUs5bK1FUAg==
+
 "@skypilot/eslint-config-typescript@^1.7.0":
   version "1.7.0"
   resolved "https://registry.yarnpkg.com/@skypilot/eslint-config-typescript/-/eslint-config-typescript-1.7.0.tgz#66c1996fa8a1083e6895dac347322e8e40ac0102"
