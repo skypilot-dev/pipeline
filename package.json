@@ -3,8 +3,25 @@
   "version": "0.1.0",
   "private": false,
   "description": "Easily assemble, run & control functional pipelines",
-  "repository": "https://github.com/skypilot-dev/pipeline.git",
+  "keywords": [
+    "function",
+    "steps",
+    "stages",
+    "pipeline",
+    "processing"
+  ],
+  "homepage": "https://github.com/skypilot-dev/pipeline#readme",
+  "bugs": {
+    "url": "https://github.com/skypilot-dev/pipeline/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/skypilot-dev/pipeline.git"
+  },
   "license": "ISC",
   "author": "William Thorsen <william@thorsen.dev>",
-  "main": "lib/index.js"
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "jest"
+  }
 }
