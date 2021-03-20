@@ -1,7 +1,7 @@
-import type { Dict } from 'src/lib/types';
+import type { Dict, MaybePromise } from 'src/lib/types';
 import type { Pipeline } from './Pipeline';
 
-type Handler<Context> = ((context?: Partial<Context>) => Partial<Context> | void);
+type Handler<Context> = ((context?: Partial<Context>) => MaybePromise<Partial<Context> | void>);
 
 export interface StepParams<Context> {
   handle: Handler<Context>;
@@ -20,7 +20,7 @@ export class Step<Context extends Dict> {
   }
 
   async run(): Promise<void> {
-    const result = this.handle(this.pipeline.context);
+    const result = await this.handle(this.pipeline.context);
     if (result) {
       this.pipeline.updateContext(result);
     }

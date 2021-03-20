@@ -1,3 +1,4 @@
+import type { Dict, MaybePromise } from 'src/lib/types';
 import { Pipeline } from '../Pipeline';
 
 describe('Pipeline class', () => {
@@ -24,6 +25,25 @@ describe('Pipeline class', () => {
         .run();
 
       expect(finalValue).toStrictEqual({ a: 1, b: 2 });
+    });
+
+    it('accepts both synchronous & asynchronous handlers', async () => {
+      type Handler = () => MaybePromise<Dict>;
+
+      const pipeline = new Pipeline();
+      const syncHandler: Handler = () => ({ a: 1 });
+      const asyncHandler: Handler = async () => ({ b: 2 });
+      const timeoutHandler: Handler = () => new Promise(resolve => {
+        setTimeout(() => resolve({ a: 3, c: 4 }));
+      });
+
+      const finalValue = await pipeline
+        .addStep({ handle: syncHandler })
+        .addStep({ handle: asyncHandler })
+        .addStep({ handle: timeoutHandler })
+        .run();
+
+      expect(finalValue).toStrictEqual({ a: 3, b: 2, c: 4 });
     });
   });
 
