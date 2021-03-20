@@ -2,6 +2,16 @@ import type { Dict, MaybePromise } from 'src/lib/types';
 import { Pipeline } from '../Pipeline';
 
 describe('Pipeline class', () => {
+  describe('instantiation', () => {
+    it('should accept an initial context', async () => {
+      const context = { a: 1 };
+
+      const pipeline = new Pipeline(context);
+
+      expect(pipeline.context).toStrictEqual(context);
+    });
+  });
+
   describe('addStep', () => {
     it('should add a Step to the Pipeline instance', async () => {
       const pipeline = new Pipeline();

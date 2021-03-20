@@ -6,6 +6,10 @@ export class Pipeline<Context extends Dict> {
   private _context: Partial<Context> = {};
   private steps: Step<Context>[] = [];
 
+  constructor(context: Partial<Context> = {}) {
+    this.updateContext(context);
+  }
+
   get context(): Partial<Context> {
     return this._context;
   }
