@@ -1195,6 +1195,13 @@
   resolved "https://registry.yarnpkg.com/@skypilot/eslint-config-typescript/-/eslint-config-typescript-1.7.0.tgz#66c1996fa8a1083e6895dac347322e8e40ac0102"
   integrity sha512-IKY2XjOyErasndv5+BoE3lMnXXXeAjF/GUL7C/gFhO7QEuOcUpsVoLENVgGZ0wmHmgeYsLejeUboqWWszFMUpg==
 
+"@skypilot/sugarbowl@^3.1.0":
+  version "3.1.0"
+  resolved "https://registry.yarnpkg.com/@skypilot/sugarbowl/-/sugarbowl-3.1.0.tgz#3babb10e51504712d6112cbda2c7f194ba51bd68"
+  integrity sha512-bxdgPu0b6hvNE788QxgT3+o0FNsoY5D/WSueNuP437s1dnOY+5DZ7nmk1FMrp74rp5f5iZVtF+WfKzQZnlTkcw==
+  dependencies:
+    json-beautify "^1.1.1"
+
 "@skypilot/toolchain@^5.2.2":
   version "5.2.2"
   resolved "https://registry.yarnpkg.com/@skypilot/toolchain/-/toolchain-5.2.2.tgz#623fef014373f2764da5488050bc965de552269e"
@@ -3854,6 +3861,11 @@ jsesc@~0.5.0:
   version "0.5.0"
   resolved "https://registry.yarnpkg.com/jsesc/-/jsesc-0.5.0.tgz#e7dee66e35d6fc16f710fe91d5cf69f70f08911d"
   integrity sha1-597mbjXW/Bb3EP6R1c9p9w8IkR0=
+
+json-beautify@^1.1.1:
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/json-beautify/-/json-beautify-1.1.1.tgz#8a1ed511ad5d52ca63ed29f7c61896c6a6ebbb9f"
+  integrity sha512-17j+Hk2lado0xqKtUcyAjK0AtoHnPSIgktWRsEXgdFQFG9UnaGw6CHa0J7xsvulxRpFl6CrkDFHght1p5ZJc4A==
 
 json-parse-even-better-errors@^2.3.0:
   version "2.3.1"

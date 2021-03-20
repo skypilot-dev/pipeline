@@ -48,5 +48,8 @@
   "files": [
     "/lib"
   ],
-  "types": "lib/index.d.ts"
+  "types": "lib/index.d.ts",
+  "dependencies": {
+    "@skypilot/sugarbowl": "^3.1.0"
+  }
 }
