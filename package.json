@@ -1,0 +1,10 @@
+{
+  "name": "@skypilot/pipeline",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Easily assemble, run & control functional pipelines",
+  "repository": "https://github.com/skypilot-dev/pipeline.git",
+  "license": "ISC",
+  "author": "William Thorsen <william@thorsen.dev>",
+  "main": "lib/index.js"
+}
