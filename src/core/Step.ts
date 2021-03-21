@@ -16,6 +16,7 @@ export interface StepParams<Context> {
 }
 
 export class Step<Context extends Dict> {
+  index: Integer; // index in the parent's array of steps
   name: string;
 
   private readonly handle: Handler<Context>;
@@ -25,6 +26,7 @@ export class Step<Context extends Dict> {
     const { pipeline, handle, index, name = index.toString() } = stepParams;
 
     this.handle = handle || (context => context);
+    this.index = index;
     this.name = name;
     this.pipeline = pipeline;
   }
