@@ -79,5 +79,71 @@ describe('Pipeline class', () => {
         expect(output).not.toBe(context);
       }
     });
+
+    it('if slice is specified, should run only the steps included in the slice', async () => {
+      // slice(0, 1): Run only step 0
+      {
+        const pipeline = new Pipeline()
+          .addStep({ handle: () => ({ step0: 'Include' }) })
+          .addStep({ handle: () => ({ step1: 'Do not include' }) });
+        const expected = { step0: 'Include' };
+
+        const output = await pipeline.run({ slice: [0, 1] });
+
+        expect(output).toStrictEqual(expected);
+      }
+
+      // slice(1): Run step 1 onward
+      {
+        const pipeline = new Pipeline()
+          .addStep({ handle: () => ({ step0: 'Do not include' }) })
+          .addStep({ handle: () => ({ step1: 'Include' }) })
+          .addStep({ handle: () => ({ step2: 'Include' }) });
+        const expected = { step1: 'Include', step2: 'Include' };
+
+        const output = await pipeline.run({ slice: [1] });
+
+        expect(output).toStrictEqual(expected);
+      }
+
+      // slice(1, -1): Run from step 1 to second to last
+      {
+        const pipeline = new Pipeline()
+          .addStep({ handle: () => ({ step0: 'Do not include' }) })
+          .addStep({ handle: () => ({ step1: 'Include' }) })
+          .addStep({ handle: () => ({ step2: 'Include' }) });
+        const expected = { step1: 'Include' };
+
+        const output = await pipeline.run({ slice: [1, -1] });
+
+        expect(output).toStrictEqual(expected);
+      }
+
+      // slice(-2): Run from second-to-last onward
+      {
+        const pipeline = new Pipeline()
+          .addStep({ handle: () => ({ step0: 'Do not include' }) })
+          .addStep({ handle: () => ({ step1: 'Include' }) })
+          .addStep({ handle: () => ({ step2: 'Include' }) });
+        const expected = { step1: 'Include', step2: 'Include' };
+
+        const output = await pipeline.run({ slice: [-2] });
+
+        expect(output).toStrictEqual(expected);
+      }
+
+      // slice(4): Run from 4th indexed step onward (i.e., none)
+      {
+        const pipeline = new Pipeline()
+          .addStep({ handle: () => ({ step0: 'Do not include' }) })
+          .addStep({ handle: () => ({ step1: 'Do not include' }) })
+          .addStep({ handle: () => ({ step2: 'Do not include' }) });
+        const expected = {};
+
+        const output = await pipeline.run({ slice: [4] });
+
+        expect(output).toStrictEqual(expected);
+      }
+    });
   });
 });

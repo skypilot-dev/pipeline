@@ -1,6 +1,13 @@
+import type { Integer } from '@skypilot/common-types';
+import { includeIf } from '@skypilot/sugarbowl';
+
 import type { Dict } from 'src/lib/types';
 import { Step } from './Step';
 import type { StepParams } from './Step';
+
+interface PipelineRunOptions {
+  slice?: [Integer] | [Integer, Integer];
+}
 
 export class Pipeline<Context extends Dict> {
   private _context: Partial<Context> = {};
@@ -20,8 +27,12 @@ export class Pipeline<Context extends Dict> {
     return this;
   }
 
-  async run(): Promise<Partial<Context>> {
-    for (const step of this.steps) {
+  async run(options: PipelineRunOptions = {}): Promise<Partial<Context>> {
+    const { slice = [0] } = options;
+    const [sliceStart, sliceEnd] = slice;
+    const sliceParams = [sliceStart, ...includeIf(sliceEnd)];
+
+    for (const step of this.steps.slice(...sliceParams)) {
       await step.run();
     }
     return this._context;
