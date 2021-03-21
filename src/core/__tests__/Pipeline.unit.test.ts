@@ -145,5 +145,31 @@ describe('Pipeline class', () => {
         expect(output).toStrictEqual(expected);
       }
     });
+
+    it('if excludeSteps is given, should not run those steps ', async () => {
+      {
+        const pipeline = new Pipeline()
+          .addStep({ handle: () => ({ step0: 'step0' }), name: 'step0' })
+          .addStep({ handle: () => ({ step1: 'excluded' }), name: 'step1' })
+          .addStep({ handle: () => ({ step2: 'step2' }), name: 'step2' });
+
+        await expect(
+          await pipeline.run({ excludeSteps: ['step1'] })
+        ).toStrictEqual({ step0: 'step0', step2: 'step2' });
+      }
+    });
+
+    it('if includeSteps is given, should run only those steps', async () => {
+      {
+        const pipeline = new Pipeline()
+          .addStep({ handle: () => ({ step0: 'step0' }), name: 'step0' })
+          .addStep({ handle: () => ({ step1: 'included' }), name: 'step1' })
+          .addStep({ handle: () => ({ step2: 'included' }), name: 'step2' });
+
+        await expect(
+          await pipeline.run({ includeSteps: ['step1', 'step2'] })
+        ).toStrictEqual({ step1: 'included', step2: 'included' });
+      }
+    });
   });
 });

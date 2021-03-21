@@ -5,9 +5,19 @@ import type { Dict } from 'src/lib/types';
 import { Step } from './Step';
 import type { StepParams } from './Step';
 
-interface PipelineRunOptions {
+interface ExcludeSteps {
+  excludeSteps?: string[]; includeSteps?: undefined;
+}
+
+interface IncludeSteps {
+  excludeSteps?: undefined; includeSteps?: string[];
+}
+
+interface CorePipelineRunOptions {
   slice?: [Integer] | [Integer, Integer];
 }
+
+export type PipelineRunOptions = CorePipelineRunOptions & (ExcludeSteps | IncludeSteps);
 
 export class Pipeline<Context extends Dict> {
   private _context: Partial<Context> = {};
@@ -29,11 +39,22 @@ export class Pipeline<Context extends Dict> {
   }
 
   async run(options: PipelineRunOptions = {}): Promise<Partial<Context>> {
-    const { slice = [0] } = options;
+    const { excludeSteps, includeSteps, slice = [0] } = options;
     const [sliceStart, sliceEnd] = slice;
     const sliceParams = [sliceStart, ...includeIf(sliceEnd)];
 
-    for (const step of this.steps.slice(...sliceParams)) {
+    const filter = (() => {
+      if (excludeSteps) {
+        return ({ name }: { name: string }) => !excludeSteps.includes(name);
+      } else if (includeSteps) {
+        return ({ name }: { name: string }) => includeSteps.includes(name);
+      } else {
+        return () => true;
+      }
+    })();
+
+    const filteredSteps = this.steps.slice(...sliceParams).filter(filter);
+    for (const step of filteredSteps) {
       await step.run();
     }
     return this._context;
