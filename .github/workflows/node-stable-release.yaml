@@ -1,0 +1,133 @@
+name: Stable release
+
+on:
+  push:
+    branches:
+      - 'main'
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '*.md'
+      - 'LICENSE'
+      - 'package.json'
+
+jobs:
+  stable-release:
+    name: Create stable release
+
+    env:
+      CI: true
+      GPG_KEY: ${{ secrets.SPQR_BOT_GPG_KEY }}
+      GPG_KEY_ID: ${{ secrets.SPQR_BOT_GPG_KEY_ID }}
+      NPM_READ_TOKEN: ${{ secrets.NPM_AUTOMATION_TOKEN || secrets.NPM_READ_AND_PUBLISH_TOKEN || secrets.NPM_READ_TOKEN }}
+      NPM_READ_AND_PUBLISH_TOKEN: ${{ secrets.NPM_AUTOMATION_TOKEN || secrets.NPM_READ_AND_PUBLISH_TOKEN }}
+      STABLE_RELEASE_BRANCH: 'main'
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [12.x]
+
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.SPQR_GITHUB_PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
+      - name: Fetch
+        run: |
+          git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+          git fetch --unshallow origin $STABLE_RELEASE_BRANCH
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install
+        run: |
+          echo "//registry.npmjs.org/:_authToken=$NPM_READ_TOKEN" > .npmrc
+          yarn install --frozen-lockfile --production=false
+          yarn add @skypilot/quick-release sort-package-json conventional-changelog-cli@2 --production=false
+          git checkout -- .
+      - name: Lint config files
+        run: yarn sort-package-json
+      - name: Check types
+        if: success()
+        run: |
+          if [[ $(yarn --silent spqr-option 'release.check-code') == 'true' ]] ; then
+            yarn run typecheck
+          fi
+      - name: Lint
+        if: success()
+        run: |
+          if [[ $(yarn --silent spqr-option 'release.check-code') == 'true' ]] ; then
+            yarn run lint --no-cache --quiet
+          fi
+      - name: Test
+        if: success()
+        run: |
+          if [[ $(yarn --silent spqr-option 'release.check-code') == 'true' ]] ; then
+            yarn test
+          fi
+      - name: Gather published versions
+        run: |
+          mkdir -p local
+          yarn info --silent . versions > local/published-versions.txt
+      - name: Bump version
+        if: success()
+        run: |
+          yarn --silent bump-version && yarn --silent conventional-changelog -p angular -r 0 > CHANGELOG.md
+          echo "VERSION=$(yarn --silent get-current-version)" >> $GITHUB_ENV
+          echo "VERSION_TAG=v$(yarn --silent get-current-version)" >> $GITHUB_ENV
+          echo "VERSION_STAGE=$(git symbolic-ref --short HEAD)" >> $GITHUB_ENV
+      - name: Build
+        if: success()
+        run: |
+          if [[ $(yarn --silent spqr-option 'release.build') == 'true' ]] ; then
+            yarn run build
+          fi
+      - name: Publish
+        if: success()
+        run: |
+          if [[ $(yarn --silent spqr-option release.publish) == 'true' ]] ; then
+            if test -z "$NPM_READ_AND_PUBLISH_TOKEN" ; then
+              echo "No NPM_READ_AND_PUBLISH_TOKEN found. Skipping publication"
+            else
+              yarn config set //registry.yarnpkg.com/:_authToken=$NPM_READ_AND_PUBLISH_TOKEN
+              yarn publish --access $(yarn --silent spqr-option release.access) --non-interactive
+            fi
+          else
+            echo "release.publish = false. Skipping publication."
+            echo "To publish, set \`release.publish: true\` in .skypilot/quick-release.yaml."
+          fi
+      - name: Configure identity
+        if: success()
+        run: |
+          git config --global user.email "$(yarn --silent spqr-option bot.email)"
+          git config --global user.name "$(yarn --silent spqr-option bot.name)"
+          if test -n "$GPG_KEY" && test -n "$GPG_KEY_ID"; then
+            echo "$GPG_KEY" | base64 -d > private.key
+            gpg --import ./private.key
+            rm ./private.key
+            git config --global commit.gpgsign true
+            git config --global tag.gpgsign true
+            git config --global user.signingkey $GPG_KEY_ID
+          else
+            echo "GPG_KEY and/or GPG_KEY_ID is undefined in GitHub Secrets. The commit & tag will not be signed."
+          fi
+      - name: Commit files
+        if: success()
+        run: |
+          git add package.json CHANGELOG.md
+          git commit --message "Release $VERSION"
+      - name: Tag
+        if: success()
+        run: |
+          git tag -a $VERSION_TAG -m "Release $VERSION"
+      - name: Push changes
+        if: success()
+        run: git push --tags origin $VERSION_STAGE
+      - name: Update next branch
+        if: success()
+        run: git fetch origin next && git checkout next && git merge --ff-only $STABLE_RELEASE_BRANCH && git push origin next

@@ -1,0 +1,143 @@
+name: Prerelease
+
+on:
+  push:
+    branches:
+      - 'alpha'
+      - 'beta'
+      - 'next'
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '*.md'
+      - 'LICENSE'
+      - 'package.json'
+
+jobs:
+  prerelease:
+    name: Create prerelease
+
+    env:
+      CI: true
+      GPG_KEY: ${{ secrets.SPQR_BOT_GPG_KEY }}
+      GPG_KEY_ID: ${{ secrets.SPQR_BOT_GPG_KEY_ID }}
+      NPM_READ_TOKEN: ${{ secrets.NPM_AUTOMATION_TOKEN || secrets.NPM_READ_AND_PUBLISH_TOKEN || secrets.NPM_READ_TOKEN }}
+      NPM_READ_AND_PUBLISH_TOKEN: ${{ secrets.NPM_AUTOMATION_TOKEN || secrets.NPM_READ_AND_PUBLISH_TOKEN }}
+      STABLE_RELEASE_BRANCH: 'main'
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [12.x]
+
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.SPQR_GITHUB_PERSONAL_ACCESS_TOKEN || secrets.GITHUB_TOKEN }}
+      - name: Fetch
+        run: |
+          git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+          git fetch --unshallow origin "$STABLE_RELEASE_BRANCH:$STABLE_RELEASE_BRANCH"
+          git fetch origin $(git symbolic-ref --short HEAD)
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Install
+        run: |
+          echo "//registry.npmjs.org/:_authToken=$NPM_READ_TOKEN" > .npmrc
+          yarn install --frozen-lockfile --production=false
+          yarn add @skypilot/quick-release --production=false
+          git checkout -- .
+      - name: Check types
+        if: success()
+        run: |
+          if [[ $(yarn --silent spqr-option 'prerelease.check-code') == 'true' ]] ; then
+            yarn run typecheck
+          fi
+      - name: Lint
+        if: success()
+        run: |
+          if [[ $(yarn --silent spqr-option 'prerelease.check-code') == 'true' ]] ; then
+            yarn run lint --no-cache --quiet
+          fi
+      - name: Test
+        if: success()
+        run: |
+          if [[ $(yarn --silent spqr-option 'prerelease.check-code') == 'true' ]] ; then
+            yarn test
+          fi
+      - name: Gather published versions
+        run: |
+          mkdir -p local
+          yarn info --silent . versions > local/published-versions.txt
+      - name: Bump version
+        if: success()
+        run: |
+          yarn --silent bump-version
+          echo "VERSION=$(yarn --silent get-current-version)" >> $GITHUB_ENV
+          echo "VERSION_TAG=v$(yarn --silent get-current-version)" >> $GITHUB_ENV
+          echo "VERSION_STAGE=$(git symbolic-ref --short HEAD)" >> $GITHUB_ENV
+      - name: Build
+        if: success()
+        run: |
+          if [[ $(yarn --silent spqr-option 'prerelease.build') == 'true' ]] ; then
+            yarn run build
+          fi
+      - name: Publish
+        if: success()
+        run: |
+          if [[ $(yarn --silent spqr-option prerelease.publish) == 'true' ]] ; then
+            if test -z "$NPM_READ_AND_PUBLISH_TOKEN" ; then
+              echo "No NPM_READ_AND_PUBLISH_TOKEN found. Skipping publication"
+            else
+              if [[ $(yarn --silent is-published $VERSION) == true ]]; then
+                echo "$VERSION_TAG has already been published. Skipping publication."
+              else
+                ACCESS=$(yarn --silent spqr-option prerelease.access)
+                yarn config set //registry.yarnpkg.com/:_authToken=$NPM_READ_AND_PUBLISH_TOKEN
+                yarn publish --access $ACCESS --non-interactive --tag $VERSION_STAGE
+
+                # If this stage is designated as the latest stage, tag it as 'latest' in NPM
+                # (typically used with alpha or beta prereleases prior to the publication of the first release)
+                LATEST_STAGE=$(yarn --silent spqr-option prerelease.latestStage)
+                if test -n $LATEST_STAGE && [[ $LATEST_STAGE == $VERSION_STAGE ]]; then
+                  # Yarn (as at v1.22.5) throws an error when adding a tag, but the operation does succeed
+                  yarn tag add "$(yarn info --silent . name)@$VERSION" latest || true
+                fi
+              fi
+            fi
+          else
+            echo "prerelease.publish = false. Skipping publication."
+            echo "To publish, set \`prerelease.publish: true\` in .skypilot/quick-release.yaml."
+          fi
+      - name: Configure identity
+        if: success()
+        run: |
+          git config --global user.email "$(yarn --silent spqr-option bot.email)"
+          git config --global user.name "$(yarn --silent spqr-option bot.name)"
+          if test -n "$GPG_KEY" && test -n "$GPG_KEY_ID"; then
+            echo "$GPG_KEY" | base64 -d > private.key
+            gpg --import ./private.key
+            rm ./private.key
+            git config --global commit.gpgsign true
+            git config --global tag.gpgsign true
+            git config --global user.signingkey $GPG_KEY_ID
+          else
+            echo "GPG_KEY and/or GPG_KEY_ID is undefined in GitHub Secrets. The tag will not be signed."
+          fi
+      - name: Tag
+        if: success()
+        run: |
+          if [[ $(yarn --silent is-tagged $VERSION) == true ]]; then
+            echo "$VERSION_TAG has already been tagged. Skipping tagging."
+          else
+            git tag -a $VERSION_TAG -m "Prerelease $VERSION"
+          fi
+      - name: Push tag
+        if: success()
+        run: git push --tags
