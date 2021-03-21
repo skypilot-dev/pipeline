@@ -1,9 +1,12 @@
+import type { Integer } from '@skypilot/common-types';
+
 import type { Dict, MaybePromise } from 'src/lib/types';
 import type { Pipeline } from './Pipeline';
 
 type Handler<Context> = ((context?: Partial<Context>) => MaybePromise<Partial<Context> | void>);
 
 interface PipelineStepParams<Context> {
+  index: Integer;
   pipeline: Pipeline<Context>;
 }
 
@@ -13,13 +16,16 @@ export interface StepParams<Context> {
 }
 
 export class Step<Context extends Dict> {
+  name: string;
+
   private readonly handle: Handler<Context>;
   private readonly pipeline: Pipeline<Context>;
 
   constructor(stepParams: StepParams<Context> & PipelineStepParams<Context>) {
-    const { pipeline, handle } = stepParams;
+    const { pipeline, handle, index, name = index.toString() } = stepParams;
 
     this.handle = handle || (context => context);
+    this.name = name;
     this.pipeline = pipeline;
   }
 

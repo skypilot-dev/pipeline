@@ -22,8 +22,9 @@ export class Pipeline<Context extends Dict> {
   }
 
   // TODO: Allow steps to be grouped into stages
-  addStep(stepParams: Omit<StepParams<Context>, 'pipeline'>): this {
-    this.steps.push(new Step({ ...stepParams, pipeline: this }));
+  // TODO: Enforce unique names
+  addStep(stepParams: StepParams<Context>): this {
+    this.steps.push(new Step({ ...stepParams, index: this.steps.length - 1, pipeline: this }));
     return this;
   }
 
