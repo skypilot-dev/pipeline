@@ -77,6 +77,7 @@ export class Pipeline<Context extends Dict> {
 
     this.logger.verbose = verbose;
     this.addIntroToLog(options);
+    this.logger.add('Started run', { prependTimestamp: true, sectionBreakAfter: true });
 
     const filteredSteps = this.filterSteps(filterOptions);
     for (const step of filteredSteps) {
