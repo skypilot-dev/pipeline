@@ -12,7 +12,7 @@ describe('Logger class', () => {
       logger.add(messages[0]);
       logger.add(messages[1]);
 
-      expect(logger.get()).toStrictEqual(messages);
+      expect(logger.get().slice(2)).toStrictEqual(messages);
     });
 
     it('given a `runLevel` option, should indent the message 2 spaces per run level', () => {
@@ -27,7 +27,7 @@ describe('Logger class', () => {
         logger.add(message, { runLevel: index + 1 });
       });
 
-      expect(logger.get()).toStrictEqual([
+      expect(logger.get().slice(2)).toStrictEqual([
         'run level: 1',
         '  run level: 2',
         '    { "runLevel": 3 }',
@@ -41,7 +41,7 @@ describe('Logger class', () => {
 
       logger.add(message, { prefix });
 
-      expect(logger.get()).toStrictEqual([
+      expect(logger.get().slice(2)).toStrictEqual([
         'Prefix: Message',
       ]);
     });

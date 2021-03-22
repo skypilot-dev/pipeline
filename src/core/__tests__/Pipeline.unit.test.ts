@@ -114,7 +114,7 @@ describe('Pipeline class', () => {
     it('if slice is specified, should run only the steps included in the slice', async () => {
       // slice(0, 1): Run only step 0
       {
-        const pipeline = new Pipeline()
+        const pipeline = new Pipeline({}, { logDir, logFileName: 'slice-1.log' })
           .addStep({ handle: () => ({ step0: 'Include' }) })
           .addStep({ handle: () => ({ step1: 'Do not include' }) });
         const expected = { step0: 'Include' };
@@ -126,7 +126,7 @@ describe('Pipeline class', () => {
 
       // slice(1): Run step 1 onward
       {
-        const pipeline = new Pipeline()
+        const pipeline = new Pipeline({}, { logDir, logFileName: 'slice-2.log' })
           .addStep({ handle: () => ({ step0: 'Do not include' }) })
           .addStep({ handle: () => ({ step1: 'Include' }) })
           .addStep({ handle: () => ({ step2: 'Include' }) });
@@ -139,7 +139,7 @@ describe('Pipeline class', () => {
 
       // slice(1, -1): Run from step 1 to second to last
       {
-        const pipeline = new Pipeline()
+        const pipeline = new Pipeline({}, { logDir, logFileName: 'slice-3.log' })
           .addStep({ handle: () => ({ step0: 'Do not include' }) })
           .addStep({ handle: () => ({ step1: 'Include' }) })
           .addStep({ handle: () => ({ step2: 'Include' }) });
@@ -179,7 +179,7 @@ describe('Pipeline class', () => {
 
     it('if excludeSteps is given, should not run those steps ', async () => {
       {
-        const pipeline = new Pipeline()
+        const pipeline = new Pipeline({}, { logDir, logFileName: 'exclude-steps' })
           .addStep({ handle: () => ({ step0: 'step0' }), name: 'step0' })
           .addStep({ handle: () => ({ step1: 'excluded' }), name: 'step1' })
           .addStep({ handle: () => ({ step2: 'step2' }), name: 'step2' });
@@ -192,7 +192,7 @@ describe('Pipeline class', () => {
 
     it('if includeSteps is given, should run only those steps', async () => {
       {
-        const pipeline = new Pipeline()
+        const pipeline = new Pipeline({}, { logDir, logFileName: 'include-steps' })
           .addStep({ handle: () => ({ step0: 'step0' }), name: 'step0' })
           .addStep({ handle: () => ({ step1: 'included' }), name: 'step1' })
           .addStep({ handle: () => ({ step2: 'included' }), name: 'step2' });

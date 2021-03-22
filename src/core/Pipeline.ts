@@ -1,5 +1,5 @@
 import type { Integer } from '@skypilot/common-types';
-import { includeIf, inflectQuantity } from '@skypilot/sugarbowl';
+import { includeIf } from '@skypilot/sugarbowl';
 import { serializeError } from 'serialize-error';
 
 import type { Dict } from 'src/lib/types';
@@ -77,9 +77,14 @@ export class Pipeline<Context extends Dict> {
 
     this.logger.verbose = verbose;
     this.addIntroToLog(options);
+    this.logger.add('Started run', { prependTimestamp: true, sectionBreakAfter: true });
 
     const filteredSteps = this.filterSteps(filterOptions);
     for (const step of filteredSteps) {
+      this.logger.add(
+        `Started step ${step.index + 1}: ${step.name}`,
+        { prependTimestamp: true, sectionBreakBefore: true, sectionBreakAfter: true }
+      );
       await step.run(this.context, { logger: this.logger })
         .catch(error => {
           // Save the error to the log and write the log, so that existing log entries aren't lost
@@ -106,22 +111,22 @@ export class Pipeline<Context extends Dict> {
     return mergedContext;
   }
 
-  addIntroToLog(options: PipelineRunOptions): void {
-    const filteredSteps = this.filterSteps(options);
+  addIntroToLog(pipelineRunOptions: PipelineRunOptions): void {
+    const filteredSteps = this.filterSteps(pipelineRunOptions);
+    const annotateInactive = filteredSteps.length !== this.steps.length;
 
-    function describeSteps<S extends { name: string }>(steps: S[]): string {
-      if (!steps.length) {
-        return 'none';
-      }
-      return steps.map(step => step.name).join(', ');
+    if (this.steps.length) {
+      this.logger.add([
+        'Steps in the pipeline', ...includeIf(annotateInactive, '(● = active, ○ = inactive)'),
+      ].join(' ') + ':');
+      this.logger.add(this.steps.map(
+        step => [
+          ...includeIf(annotateInactive, filteredSteps.some(s => s.index === step.index) ? '●' : '○'),
+          `${(step.index + 1).toString()}.`,
+          step.name,
+        ].join(' ')
+      ).join('\n'), { sectionBreakAfter: true });
     }
-
-    this.logger.add(
-      `${inflectQuantity(this.steps.length, 'defined step')}: ${describeSteps(this.steps)}`
-    );
-    this.logger.add(
-      `${inflectQuantity(filteredSteps.length, 'active step')}: ${describeSteps(filteredSteps)}`,
-    );
-    this.logger.add(options, { prefix: 'Options', sectionBreakAfter: true });
+    this.logger.add(pipelineRunOptions, { prefix: 'pipelineRunOptions', sectionBreakAfter: true });
   }
 }

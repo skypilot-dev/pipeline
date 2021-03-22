@@ -3,7 +3,7 @@
 import fs from 'fs';
 import path from 'path';
 import type { Integer } from '@skypilot/common-types';
-import { consoleIf, getLastItem, includeIf } from '@skypilot/sugarbowl';
+import { consoleIf, getLastItem } from '@skypilot/sugarbowl';
 import beautify from 'json-beautify';
 
 import { toUtcDateTimeText } from './toUtcDateTimeText';
@@ -12,6 +12,7 @@ interface AddOptions {
   sectionBreakAfter?: boolean;
   sectionBreakBefore?: boolean;
   prefix?: string;
+  prependTimestamp?: boolean;
   runLevel?: Integer;
 }
 
@@ -23,10 +24,10 @@ interface LoggerParams {
 
 export class Logger {
   indentWidth = 2;
-  sectionBreak = '-'.repeat(20);
+  sectionBreakWidth = 40;
+  sectionBreak = '-'.repeat(this.sectionBreakWidth);
   verbose: boolean;
 
-  private readonly createdAt = new Date();
   private log: string[] = [];
   private readonly logDir: string;
   private readonly logFileName: string;
@@ -37,12 +38,15 @@ export class Logger {
     this.logDir = logDir;
     this.logFileName = logFileName;
     this.verbose = verbose;
+
+    this.add('Log created', { prependTimestamp: true, sectionBreakAfter: true });
   }
 
   add(message: string | Record<string, any>, options: AddOptions = {}): void {
-    const { prefix = '', runLevel = 0, sectionBreakAfter, sectionBreakBefore } = options;
+    const { prefix = '', prependTimestamp, runLevel = 0, sectionBreakAfter, sectionBreakBefore } = options;
 
     const indent = this.computeIndent(runLevel);
+    const timestamp = prependTimestamp ? `${toUtcDateTimeText()} | ` : '';
 
     const messageBlock = typeof message === 'string'
       ? message
@@ -58,7 +62,7 @@ export class Logger {
       this.addSectionBreak(runLevel);
     }
     lines.forEach((line, index) => {
-      const formattedLine = `${indent}${index ? '' : resolvedPrefix}${line}`;
+      const formattedLine = `${indent}${timestamp}${index ? '' : resolvedPrefix}${line}`;
       formattedLines.push(formattedLine);
     });
     this.log.push(...formattedLines);
@@ -85,19 +89,9 @@ export class Logger {
     console.log(this.format());
   }
 
-  // TODO: Refactor so that `addSectionBreak` can be used to generate the output
   format(): string {
-    return [
-      `Started at ${toUtcDateTimeText(this.createdAt)}`,
-      '-'.repeat(20),
-      ...this.log,
-      // Add a section break, but only if the previous line wasn't as section break
-      ...includeIf(
-        !getLastItem(this.log, { defaultValue: '' }).includes(this.sectionBreak),
-        this.sectionBreak
-      ),
-      `Finished at ${toUtcDateTimeText()}`,
-    ].join('\n');
+    // TODO: Possibly, offer other formats
+    return this.log.join('\n');
   }
 
   get(): string[] {
@@ -116,8 +110,9 @@ export class Logger {
       return;
     }
 
-    const { fullDirPath, fullFilePath } = this.getPaths();
+    this.add('Log written', { prependTimestamp: true, sectionBreakBefore: true });
 
+    const { fullDirPath, fullFilePath } = this.getPaths();
     fs.mkdirSync(fullDirPath, { recursive: true });
     fs.writeFileSync(fullFilePath, this.format());
   }

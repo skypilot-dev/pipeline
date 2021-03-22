@@ -28,7 +28,7 @@ export class Step<Context extends Dict> {
   private readonly pipeline: Pipeline<Context>;
 
   constructor(stepParams: StepParams<Context> & PipelineStepParams<Context>) {
-    const { pipeline, handle, index, name = `unnamed-${(index + 1).toString()}` } = stepParams;
+    const { pipeline, handle, index, name = `Unnamed step ${(index + 1).toString()}` } = stepParams;
 
     this.handle = handle || (context => context);
     this.index = index;
