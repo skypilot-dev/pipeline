@@ -1,6 +1,7 @@
 import * as actualExports from '../index';
 
 const intendedExports: string[] = [
+  'Logger',
   'Pipeline',
 ];
 
