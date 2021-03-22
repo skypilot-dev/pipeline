@@ -1,6 +1,6 @@
 import type { Integer } from '@skypilot/common-types';
 
-import type { Dict, MaybePromise } from 'src/lib/types';
+import type { Fragment, Interim, MaybePromise } from 'src/lib/types';
 import type { Logger } from 'src/logger/Logger';
 import type { Pipeline } from './Pipeline';
 
@@ -8,26 +8,26 @@ export interface Handles {
   logger: Logger;
 }
 
-export type Handler<Context> = (context: Partial<Context>, handles: Handles) => MaybePromise<Partial<Context> | void>;
+export type Handler<I, A> = (context: Interim<I, A>, handles: Handles) => MaybePromise<Fragment<I, A> | void>;
 
-interface PipelineStepParams<Context> {
+interface PipelineStepParams<I, A> {
   index: Integer;
-  pipeline: Pipeline<Context>;
+  pipeline: Pipeline<I, A>;
 }
 
-export interface StepParams<Context> {
-  handle: Handler<Context>;
+export interface StepParams<I, A> {
+  handle: Handler<I, A>;
   name?: string;
 }
 
-export class Step<Context extends Dict> {
+export class Step<I, A> {
   index: Integer; // index in the parent's array of steps
   name: string;
 
-  private readonly handle: Handler<Context>;
-  private readonly pipeline: Pipeline<Context>;
+  private readonly handle: Handler<I, A>;
+  private readonly pipeline: Pipeline<I, A>;
 
-  constructor(stepParams: StepParams<Context> & PipelineStepParams<Context>) {
+  constructor(stepParams: StepParams<I, A> & PipelineStepParams<I, A>) {
     const { pipeline, handle, index, name = `Unnamed step ${(index + 1).toString()}` } = stepParams;
 
     this.handle = handle || (context => context);
@@ -36,7 +36,7 @@ export class Step<Context extends Dict> {
     this.pipeline = pipeline;
   }
 
-  async run(context: Partial<Context>, handles: Handles): Promise<void> {
+  async run(context: Interim<I, A>, handles: Handles): Promise<void> {
     const result = await this.handle(context, handles);
     if (result) {
       this.pipeline.updateContext(result);

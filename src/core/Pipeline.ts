@@ -2,7 +2,7 @@ import type { Integer } from '@skypilot/common-types';
 import { includeIf } from '@skypilot/sugarbowl';
 import { serializeError } from 'serialize-error';
 
-import type { Dict } from 'src/lib/types';
+import type { Dict, Fragment, Interim } from 'src/lib/types';
 import { Logger } from 'src/logger/Logger';
 import { Step } from './Step';
 import type { StepParams } from './Step';
@@ -29,31 +29,33 @@ export interface PipelineOptions {
 
 type Slice = [Integer] | [Integer, Integer];
 
-export class Pipeline<Context extends Dict> {
+export class Pipeline<I extends Dict, A extends Dict> {
   readonly logger: Logger;
 
-  private _context: Partial<Context> = {};
-  private steps: Step<Context>[] = [];
+  private _context: Interim<I, A> = {};
+  private steps: Step<I, A>[] = [];
 
-  constructor(context: Partial<Context> = {}, options: PipelineOptions = {}) {
+  constructor(initialContext: I, options?: PipelineOptions);
+  constructor(initialContext?: undefined);
+  constructor(initialContext = {}, options: PipelineOptions = {}) {
     const { logDir, logFileName } = options;
 
     this.logger = new Logger({ logDir, logFileName });
-    this.updateContext(context);
+    this.updateContext(initialContext);
   }
 
-  get context(): Partial<Context> {
+  get context(): Interim<I, A> {
     return this._context;
   }
 
   // TODO: Allow steps to be grouped into stages
   // TODO: Enforce unique names
-  addStep(stepParams: StepParams<Context>): this {
+  addStep(stepParams: StepParams<I, A>): this {
     this.steps.push(new Step({ ...stepParams, index: this.steps.length, pipeline: this }));
     return this;
   }
 
-  filterSteps(options: PipelineRunOptions): Step<Context>[] {
+  filterSteps(options: PipelineRunOptions): Step<I, A>[] {
     const { excludeSteps, includeSteps, slice = [0] } = options;
 
     const [sliceStart, sliceEnd] = slice;
@@ -72,7 +74,7 @@ export class Pipeline<Context extends Dict> {
     return this.steps.slice(...sliceParams).filter(filter);
   }
 
-  async run(options: PipelineRunOptions = {}): Promise<Partial<Context>> {
+  async run(options: PipelineRunOptions = {}): Promise<Interim<I, A>> {
     const { verbose = false, ...filterOptions } = options;
 
     this.logger.verbose = verbose;
@@ -102,7 +104,7 @@ export class Pipeline<Context extends Dict> {
     return this._context;
   }
 
-  updateContext<C extends Partial<Context>>(partialContext: C): Partial<Context> & C {
+  updateContext<C extends Fragment<I, A>>(partialContext: C): Interim<I, A> {
     const mergedContext = {
       ...this._context,
       ...partialContext,
@@ -111,7 +113,7 @@ export class Pipeline<Context extends Dict> {
     return mergedContext;
   }
 
-  addIntroToLog(pipelineRunOptions: PipelineRunOptions): void {
+  private addIntroToLog(pipelineRunOptions: PipelineRunOptions): void {
     const filteredSteps = this.filterSteps(pipelineRunOptions);
     const annotateInactive = filteredSteps.length !== this.steps.length;
 
