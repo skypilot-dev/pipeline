@@ -1,9 +1,14 @@
 import type { Integer } from '@skypilot/common-types';
 
 import type { Dict, MaybePromise } from 'src/lib/types';
+import { Logger } from 'src/logger/Logger';
 import type { Pipeline } from './Pipeline';
 
-type Handler<Context> = ((context?: Partial<Context>) => MaybePromise<Partial<Context> | void>);
+interface Handles {
+  logger: Logger;
+}
+
+type Handler<Context> = ((context: Partial<Context>, handles: Handles) => MaybePromise<Partial<Context> | void>);
 
 interface PipelineStepParams<Context> {
   index: Integer;
@@ -31,8 +36,8 @@ export class Step<Context extends Dict> {
     this.pipeline = pipeline;
   }
 
-  async run(): Promise<void> {
-    const result = await this.handle(this.pipeline.context);
+  async run(context: Partial<Context>, handles: Handles): Promise<void> {
+    const result = await this.handle(context, handles);
     if (result) {
       this.pipeline.updateContext(result);
     }

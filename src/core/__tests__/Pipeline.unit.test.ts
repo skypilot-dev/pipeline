@@ -1,5 +1,10 @@
+import fs from 'fs';
+import { makeTempDir } from '@skypilot/sugarbowl';
+
 import type { Dict, MaybePromise } from 'src/lib/types';
 import { Pipeline } from '../Pipeline';
+
+const logDir = makeTempDir('Pipeline-class', { baseDir: 'Pipeline-package' });
 
 describe('Pipeline class', () => {
   describe('instantiation', () => {
@@ -9,6 +14,14 @@ describe('Pipeline class', () => {
       const pipeline = new Pipeline(context);
 
       expect(pipeline.context).toStrictEqual(context);
+    });
+
+    it('if a logFileName is given, should write to a log', async () => {
+      const pipeline = new Pipeline({}, { logDir, logFileName: 'no-steps-in-pipeline.log' });
+      await pipeline.run();
+
+      const { fullFilePath } = pipeline.logger.getPaths();
+      expect(fs.existsSync(fullFilePath)).toBe(true);
     });
   });
 
@@ -54,6 +67,24 @@ describe('Pipeline class', () => {
         .run();
 
       expect(finalValue).toStrictEqual({ a: 3, b: 2, c: 4 });
+    });
+
+    it('steps can write to the log', async () => {
+      const pipeline = new Pipeline({}, { logDir, logFileName: 'step-writes-to-log.log' });
+      const message = 'This step writes to the log';
+
+      pipeline.addStep({
+        handle: (_context, { logger }) => logger.add(message),
+      });
+      await pipeline.run();
+
+      const { fullFilePath } = pipeline.logger.getPaths();
+
+      const inMemoryLog = pipeline.logger.format();
+      expect(inMemoryLog).toMatch(message);
+
+      const writtenLog = fs.readFileSync(fullFilePath, { encoding: 'utf-8' });
+      expect(writtenLog).toMatch(message);
     });
   });
 

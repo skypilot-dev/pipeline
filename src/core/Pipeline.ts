@@ -2,6 +2,7 @@ import type { Integer } from '@skypilot/common-types';
 import { includeIf } from '@skypilot/sugarbowl';
 
 import type { Dict } from 'src/lib/types';
+import { Logger } from 'src/logger/Logger';
 import { Step } from './Step';
 import type { StepParams } from './Step';
 
@@ -15,15 +16,26 @@ interface IncludeSteps {
 
 interface CorePipelineRunOptions {
   slice?: [Integer] | [Integer, Integer];
+  verbose?: boolean;
 }
 
 export type PipelineRunOptions = CorePipelineRunOptions & (ExcludeSteps | IncludeSteps);
 
+export interface PipelineOptions {
+  logDir?: string;
+  logFileName?: string;
+}
+
 export class Pipeline<Context extends Dict> {
+  readonly logger: Logger;
+
   private _context: Partial<Context> = {};
   private steps: Step<Context>[] = [];
 
-  constructor(context: Partial<Context> = {}) {
+  constructor(context: Partial<Context> = {}, options: PipelineOptions = {}) {
+    const { logDir, logFileName } = options;
+
+    this.logger = new Logger({ logDir, logFileName });
     this.updateContext(context);
   }
 
@@ -39,7 +51,11 @@ export class Pipeline<Context extends Dict> {
   }
 
   async run(options: PipelineRunOptions = {}): Promise<Partial<Context>> {
-    const { excludeSteps, includeSteps, slice = [0] } = options;
+    const { excludeSteps, includeSteps, slice = [0], verbose = false } = options;
+
+    this.logger.verbose = verbose;
+    this.logger.add(`Total steps: ${this.steps.length}`);
+    this.logger.add(options, { prefix: 'Options', sectionBreakAfter: true });
     const [sliceStart, sliceEnd] = slice;
     const sliceParams = [sliceStart, ...includeIf(sliceEnd)];
 
@@ -55,8 +71,9 @@ export class Pipeline<Context extends Dict> {
 
     const filteredSteps = this.steps.slice(...sliceParams).filter(filter);
     for (const step of filteredSteps) {
-      await step.run();
+      await step.run(this.context, { logger: this.logger });
     }
+    this.logger.write();
     return this._context;
   }
 
