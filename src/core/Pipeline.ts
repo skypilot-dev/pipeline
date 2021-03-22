@@ -1,5 +1,5 @@
 import type { Integer } from '@skypilot/common-types';
-import { includeIf } from '@skypilot/sugarbowl';
+import { includeIf, inflectQuantity } from '@skypilot/sugarbowl';
 
 import type { Dict } from 'src/lib/types';
 import { Logger } from 'src/logger/Logger';
@@ -15,7 +15,7 @@ interface IncludeSteps {
 }
 
 interface CorePipelineRunOptions {
-  slice?: [Integer] | [Integer, Integer];
+  slice?: Slice;
   verbose?: boolean;
 }
 
@@ -25,6 +25,8 @@ export interface PipelineOptions {
   logDir?: string;
   logFileName?: string;
 }
+
+type Slice = [Integer] | [Integer, Integer];
 
 export class Pipeline<Context extends Dict> {
   readonly logger: Logger;
@@ -46,16 +48,13 @@ export class Pipeline<Context extends Dict> {
   // TODO: Allow steps to be grouped into stages
   // TODO: Enforce unique names
   addStep(stepParams: StepParams<Context>): this {
-    this.steps.push(new Step({ ...stepParams, index: this.steps.length - 1, pipeline: this }));
+    this.steps.push(new Step({ ...stepParams, index: this.steps.length, pipeline: this }));
     return this;
   }
 
-  async run(options: PipelineRunOptions = {}): Promise<Partial<Context>> {
-    const { excludeSteps, includeSteps, slice = [0], verbose = false } = options;
+  filterSteps(options: PipelineRunOptions): Step<Context>[] {
+    const { excludeSteps, includeSteps, slice = [0] } = options;
 
-    this.logger.verbose = verbose;
-    this.logger.add(`Total steps: ${this.steps.length}`);
-    this.logger.add(options, { prefix: 'Options', sectionBreakAfter: true });
     const [sliceStart, sliceEnd] = slice;
     const sliceParams = [sliceStart, ...includeIf(sliceEnd)];
 
@@ -69,7 +68,16 @@ export class Pipeline<Context extends Dict> {
       }
     })();
 
-    const filteredSteps = this.steps.slice(...sliceParams).filter(filter);
+    return this.steps.slice(...sliceParams).filter(filter);
+  }
+
+  async run(options: PipelineRunOptions = {}): Promise<Partial<Context>> {
+    const { verbose = false, ...filterOptions } = options;
+
+    this.logger.verbose = verbose;
+    this.addIntroToLog(options);
+
+    const filteredSteps = this.filterSteps(filterOptions);
     for (const step of filteredSteps) {
       await step.run(this.context, { logger: this.logger });
     }
@@ -84,5 +92,24 @@ export class Pipeline<Context extends Dict> {
     };
     this._context = mergedContext;
     return mergedContext;
+  }
+
+  addIntroToLog(options: PipelineRunOptions): void {
+    const filteredSteps = this.filterSteps(options);
+
+    function describeSteps<S extends { name: string }>(steps: S[]): string {
+      if (!steps.length) {
+        return 'none';
+      }
+      return steps.map(step => step.name).join(', ');
+    }
+
+    this.logger.add(
+      `${inflectQuantity(this.steps.length, 'defined step')}: ${describeSteps(this.steps)}`
+    );
+    this.logger.add(
+      `${inflectQuantity(filteredSteps.length, 'active step')}: ${describeSteps(filteredSteps)}`,
+    );
+    this.logger.add(options, { prefix: 'Options', sectionBreakAfter: true });
   }
 }
