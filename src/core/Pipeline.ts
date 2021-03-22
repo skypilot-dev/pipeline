@@ -81,6 +81,10 @@ export class Pipeline<Context extends Dict> {
 
     const filteredSteps = this.filterSteps(filterOptions);
     for (const step of filteredSteps) {
+      this.logger.add(
+        `Started step ${step.index + 1}: ${step.name}`,
+        { prependTimestamp: true, sectionBreakBefore: true, sectionBreakAfter: true }
+      );
       await step.run(this.context, { logger: this.logger })
         .catch(error => {
           // Save the error to the log and write the log, so that existing log entries aren't lost
