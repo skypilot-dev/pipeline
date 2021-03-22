@@ -40,7 +40,8 @@
   },
   "devDependencies": {
     "@skypilot/common-types": "^2.2.1",
-    "@skypilot/toolchain": "^5.2.2"
+    "@skypilot/toolchain": "^5.2.2",
+    "type-fest": "^1.0.0"
   },
   "publishConfig": {
     "access": "restricted"
