@@ -50,6 +50,6 @@
   ],
   "types": "lib/index.d.ts",
   "dependencies": {
-    "@skypilot/sugarbowl": "^3.1.0"
+    "@skypilot/sugarbowl": "^3.2.0"
   }
 }

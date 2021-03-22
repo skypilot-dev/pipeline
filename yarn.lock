@@ -1195,10 +1195,10 @@
   resolved "https://registry.yarnpkg.com/@skypilot/eslint-config-typescript/-/eslint-config-typescript-1.7.0.tgz#66c1996fa8a1083e6895dac347322e8e40ac0102"
   integrity sha512-IKY2XjOyErasndv5+BoE3lMnXXXeAjF/GUL7C/gFhO7QEuOcUpsVoLENVgGZ0wmHmgeYsLejeUboqWWszFMUpg==
 
-"@skypilot/sugarbowl@^3.1.0":
-  version "3.1.0"
-  resolved "https://registry.yarnpkg.com/@skypilot/sugarbowl/-/sugarbowl-3.1.0.tgz#3babb10e51504712d6112cbda2c7f194ba51bd68"
-  integrity sha512-bxdgPu0b6hvNE788QxgT3+o0FNsoY5D/WSueNuP437s1dnOY+5DZ7nmk1FMrp74rp5f5iZVtF+WfKzQZnlTkcw==
+"@skypilot/sugarbowl@^3.2.0":
+  version "3.2.0"
+  resolved "https://registry.yarnpkg.com/@skypilot/sugarbowl/-/sugarbowl-3.2.0.tgz#79c2988d7938adb5e6e6c9ad7394b0ca5efb19f0"
+  integrity sha512-lSZWxuXUhfnlU/G5UDT73jrty62SECA7aKPCZAurJHsIWBweCT6FhwyOaWGudjIrRPumxr7c880ue+XXcUTTiQ==
   dependencies:
     json-beautify "^1.1.1"
 
