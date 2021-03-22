@@ -7,15 +7,15 @@ import { Logger } from 'src/logger/Logger';
 import { Step } from './Step';
 import type { StepParams } from './Step';
 
-interface ExcludeSteps {
+export interface ExcludeSteps {
   excludeSteps?: string[]; includeSteps?: undefined;
 }
 
-interface IncludeSteps {
+export interface IncludeSteps {
   excludeSteps?: undefined; includeSteps?: string[];
 }
 
-interface CorePipelineRunOptions {
+export interface CorePipelineRunOptions {
   slice?: Slice;
   verbose?: boolean;
 }
