@@ -1,5 +1,6 @@
 import type { Integer } from '@skypilot/common-types';
 import { includeIf, inflectQuantity } from '@skypilot/sugarbowl';
+import { serializeError } from 'serialize-error';
 
 import type { Dict } from 'src/lib/types';
 import { Logger } from 'src/logger/Logger';
@@ -79,7 +80,18 @@ export class Pipeline<Context extends Dict> {
 
     const filteredSteps = this.filterSteps(filterOptions);
     for (const step of filteredSteps) {
-      await step.run(this.context, { logger: this.logger });
+      await step.run(this.context, { logger: this.logger })
+        .catch(error => {
+          // Save the error to the log and write the log, so that existing log entries aren't lost
+          // const { stack, ...errorRest } = error;
+          const serializedError = serializeError(error);
+          const { stack, ...otherProps } = serializedError;
+          this.logger.add({ ...otherProps, stack: stack.split('\n') }, { prefix: 'Error' });
+          this.logger.write();
+
+          // TODO: Build in optional error handling with "skip" and "stop" options
+          throw error;
+        });
     }
     this.logger.write();
     return this._context;
