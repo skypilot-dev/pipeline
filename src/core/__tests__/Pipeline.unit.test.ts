@@ -202,5 +202,32 @@ describe('Pipeline class', () => {
         ).toStrictEqual({ step1: 'included', step2: 'included' });
       }
     });
+
+    it('if an error occurs in a step, should record it to the log and write the log', async () => {
+      {
+        const pipeline = new Pipeline({}, { logDir, logFileName: 'error-in-step.log' })
+          .addStep({
+            handle: () => ({ goodStep: 'this should be saved' }),
+            name: 'goodStep',
+          })
+          .addStep({
+            name: 'badStep',
+            handle: () => {
+              throw new Error('Error in badStep');
+            },
+          });
+
+        await expect(
+          pipeline.run()
+        ).rejects.toThrow();
+
+        // Despite the error, the log should exist
+        const { fullFilePath } = pipeline.logger.getPaths();
+        expect(fs.existsSync(fullFilePath)).toBe(true);
+
+        // Data captured up to the time of the error should be in the context
+        expect(pipeline.context).toStrictEqual({ goodStep: 'this should be saved' });
+      }
+    });
   });
 });

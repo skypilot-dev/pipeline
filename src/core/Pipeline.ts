@@ -79,7 +79,21 @@ export class Pipeline<Context extends Dict> {
 
     const filteredSteps = this.filterSteps(filterOptions);
     for (const step of filteredSteps) {
-      await step.run(this.context, { logger: this.logger });
+      await step.run(this.context, { logger: this.logger })
+        .catch(error => {
+          // Save the error to the log and write the log, so that existing log entries aren't lost
+          const { name, message, stack, ...otherProps } = error;
+          this.logger.add({
+            ...otherProps,
+            name,
+            message,
+            stack: error.stack.split('\n'),
+          }, { prefix: 'Error' });
+          this.logger.write();
+
+          // TODO: Build in optional error handling with "skip" and "stop" options
+          throw error;
+        });
     }
     this.logger.write();
     return this._context;
