@@ -11,9 +11,11 @@ export type Handler<I, A> = (context: Interim<I, A>, handles: Handles) => MaybeP
 export interface StepParams<I, A> {
   handle: Handler<I, A>;
   name: string;
+  dependsOn?: string[];
 }
 
 export class Step<I, A> {
+  dependsOn: string[]; // names of steps that must be run before this step
   name: string;
   pipeline: Pipeline<I, A>;
 
@@ -21,8 +23,9 @@ export class Step<I, A> {
 
   // TODO: When typings are correctly handled, allow the `Step` to be created independently of a `Pipeline`
   constructor(stepParams: StepParams<I, A> & { pipeline: Pipeline<I, A> }) {
-    const { pipeline, handle, name } = stepParams;
+    const { dependsOn = [], handle, name, pipeline } = stepParams;
 
+    this.dependsOn = dependsOn;
     this.handle = handle || (context => context);
     this.name = name;
     this.pipeline = pipeline;

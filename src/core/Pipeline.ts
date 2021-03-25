@@ -16,19 +16,27 @@ export interface IncludeSteps {
   excludeSteps?: undefined; includeSteps?: string[];
 }
 
+interface SliceSteps {
+  slice?: [Integer] | [Integer, Integer];
+}
+
 export interface CorePipelineRunOptions {
-  slice?: Slice;
   verbose?: boolean;
 }
 
-export type PipelineRunOptions = CorePipelineRunOptions & (ExcludeSteps | IncludeSteps);
+export type PipelineRunOptions = CorePipelineRunOptions & StepFilter;
 
 export interface PipelineOptions {
   logDir?: string;
   logFileName?: string;
 }
 
-type Slice = [Integer] | [Integer, Integer];
+export type StepFilter = (ExcludeSteps | IncludeSteps) & SliceSteps;
+
+interface ValidationResult {
+  errors: string[];
+  warnings: string[];
+}
 
 export class Pipeline<I extends Dict, A extends Dict> {
   readonly logger: Logger;
@@ -83,8 +91,8 @@ export class Pipeline<I extends Dict, A extends Dict> {
     return new Step({ ...stepParams, pipeline: this });
   }
 
-  filterSteps(options: PipelineRunOptions): Step<I, A>[] {
-    const { excludeSteps, includeSteps, slice = [0] } = options;
+  filterSteps(stepFilter: StepFilter = {}): Step<I, A>[] {
+    const { excludeSteps, includeSteps, slice = [0] } = stepFilter;
 
     const [sliceStart, sliceEnd] = slice;
     const sliceParams = [sliceStart, ...includeIf(sliceEnd)];
@@ -103,13 +111,23 @@ export class Pipeline<I extends Dict, A extends Dict> {
   }
 
   async run(options: PipelineRunOptions = {}): Promise<Interim<I, A>> {
-    const { verbose = false, ...filterOptions } = options;
+    const { verbose = false, ...stepFilter } = options;
 
     this.logger.verbose = verbose;
     this.addIntroToLog(options);
+
+    {
+      const validationResult = this.validate(stepFilter);
+      if (validationResult.errors.length > 0) {
+        this.logger.add(validationResult, { prefix: 'Validation result' });
+        this.logger.add('Pipeline run aborted', { prependTimestamp: true });
+        throw new Error(`Pipeline run aborted: ${validationResult.errors.join(', ')}`);
+      }
+    }
+
     this.logger.add('Started run', { prependTimestamp: true, sectionBreakAfter: true });
 
-    const filteredSteps = this.filterSteps(filterOptions);
+    const filteredSteps = this.filterSteps(stepFilter);
     for (const step of filteredSteps) {
       this.logger.add(
         `Started step ${filteredSteps.indexOf(step) + 1}: ${step.name}`,
@@ -139,6 +157,27 @@ export class Pipeline<I extends Dict, A extends Dict> {
     };
     this._context = mergedContext;
     return mergedContext;
+  }
+
+  validate(stepFilter: StepFilter = {}): ValidationResult {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    const filteredSteps = this.filterSteps(stepFilter);
+
+    const dependents = filteredSteps.filter(( { dependsOn }) => dependsOn.length);
+    for (const dependent of dependents) {
+      const indexOfDependent = filteredSteps.indexOf(dependent);
+      for (const dependencyName of dependent.dependsOn) {
+        const indexOfDependency = filteredSteps.findIndex(step => step.name === dependencyName);
+        if (indexOfDependency < 0) {
+          errors.push(`Step '${dependencyName}' required by '${dependent.name}' is not in the pipeline`);
+        } else if (indexOfDependency > indexOfDependent) {
+          errors.push(`Step '${dependent.name}' occurs before its dependency '${dependencyName}'`);
+        }
+      }
+    }
+    return { errors, warnings };
   }
 
   private addIntroToLog(pipelineRunOptions: PipelineRunOptions): void {
