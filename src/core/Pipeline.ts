@@ -1,6 +1,7 @@
 import type { Integer } from '@skypilot/common-types';
 import { includeIf } from '@skypilot/sugarbowl';
 import { serializeError } from 'serialize-error';
+import type { SetOptional } from 'type-fest';
 
 import type { Dict, Fragment, Interim } from 'src/lib/types';
 import { Logger } from 'src/logger/Logger';
@@ -15,25 +16,33 @@ export interface IncludeSteps {
   excludeSteps?: undefined; includeSteps?: string[];
 }
 
+interface SliceSteps {
+  slice?: [Integer] | [Integer, Integer];
+}
+
 export interface CorePipelineRunOptions {
-  slice?: Slice;
   verbose?: boolean;
 }
 
-export type PipelineRunOptions = CorePipelineRunOptions & (ExcludeSteps | IncludeSteps);
+export type PipelineRunOptions = CorePipelineRunOptions & StepFilter;
 
 export interface PipelineOptions {
   logDir?: string;
   logFileName?: string;
 }
 
-type Slice = [Integer] | [Integer, Integer];
+export type StepFilter = (ExcludeSteps | IncludeSteps) & SliceSteps;
+
+interface ValidationResult {
+  errors: string[];
+  warnings: string[];
+}
 
 export class Pipeline<I extends Dict, A extends Dict> {
   readonly logger: Logger;
+  steps: Step<I, A>[] = [];
 
   private _context: Interim<I, A> = {};
-  private steps: Step<I, A>[] = [];
 
   constructor(initialContext: I, options?: PipelineOptions);
   constructor(initialContext?: undefined);
@@ -49,25 +58,52 @@ export class Pipeline<I extends Dict, A extends Dict> {
   }
 
   // TODO: Allow steps to be grouped into stages
-  // TODO: Enforce unique names
-  addStep(stepParams: StepParams<I, A>): this {
-    this.steps.push(new Step({ ...stepParams, index: this.steps.length, pipeline: this }));
+  addStep(step: Step<I, A>): this;
+  addStep(stepParams: SetOptional<StepParams<I, A>, 'name'>): this;
+  addStep(stepParams: Step<I, A> | SetOptional<StepParams<I, A>, 'name'>): this {
+    const stepInstance = stepParams instanceof Step
+      ? ((): Step<I, A> => {
+        /* TODO: Possibly allow `Step` instances to be created independently. For now, this safeguard is in
+         * place to help TypeScript infer typings. */
+        if (stepParams.pipeline !== this) {
+          throw new Error('The step was created in a different pipeline');
+        }
+        return stepParams;
+      })()
+      : ((): Step<I, A> => {
+        const { name = `step-${this.steps.length}` } = stepParams;
+        if (this.steps.find(step => step.name === name)) {
+          throw new Error(`Step name '${name}' is already in use`);
+        }
+        return this.createStep({ ...stepParams, name });
+      })();
+
+    if (this.steps.find(({ name }) => name === stepInstance.name)) {
+      throw new Error(`Step name '${name}' is already in use`);
+    }
+
+    this.steps.push(stepInstance);
     return this;
   }
 
-  filterSteps(options: PipelineRunOptions): Step<I, A>[] {
-    const { excludeSteps, includeSteps, slice = [0] } = options;
+  // Create & return a step without adding it to the pipeline
+  createStep(stepParams: StepParams<I, A>): Step<I, A> {
+    return new Step({ ...stepParams, pipeline: this });
+  }
+
+  filterSteps(stepFilter: StepFilter = {}): Step<I, A>[] {
+    const { excludeSteps, includeSteps, slice = [0] } = stepFilter;
 
     const [sliceStart, sliceEnd] = slice;
     const sliceParams = [sliceStart, ...includeIf(sliceEnd)];
 
-    const filter = (() => {
+    const filter = ((): ((step: Step<I, A>) => boolean) => {
       if (excludeSteps) {
-        return ({ name }: { name: string }) => !excludeSteps.includes(name);
+        return step => !excludeSteps.includes(step.name) && !step.excludeByDefault;
       } else if (includeSteps) {
-        return ({ name }: { name: string }) => includeSteps.includes(name);
+        return step => includeSteps.includes(step.name);
       } else {
-        return () => true;
+        return step => !step.excludeByDefault;
       }
     })();
 
@@ -75,16 +111,26 @@ export class Pipeline<I extends Dict, A extends Dict> {
   }
 
   async run(options: PipelineRunOptions = {}): Promise<Interim<I, A>> {
-    const { verbose = false, ...filterOptions } = options;
+    const { verbose = false, ...stepFilter } = options;
 
     this.logger.verbose = verbose;
     this.addIntroToLog(options);
+
+    {
+      const validationResult = this.validate(stepFilter);
+      if (validationResult.errors.length > 0) {
+        this.logger.add(validationResult, { prefix: 'Validation result' });
+        this.logger.add('Pipeline run aborted', { prependTimestamp: true });
+        throw new Error(`Pipeline run aborted: ${validationResult.errors.join(', ')}`);
+      }
+    }
+
     this.logger.add('Started run', { prependTimestamp: true, sectionBreakAfter: true });
 
-    const filteredSteps = this.filterSteps(filterOptions);
+    const filteredSteps = this.filterSteps(stepFilter);
     for (const step of filteredSteps) {
       this.logger.add(
-        `Started step ${step.index + 1}: ${step.name}`,
+        `Started step ${filteredSteps.indexOf(step) + 1}: ${step.name}`,
         { prependTimestamp: true, sectionBreakBefore: true, sectionBreakAfter: true }
       );
       await step.run(this.context, { logger: this.logger })
@@ -113,6 +159,27 @@ export class Pipeline<I extends Dict, A extends Dict> {
     return mergedContext;
   }
 
+  validate(stepFilter: StepFilter = {}): ValidationResult {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    const filteredSteps = this.filterSteps(stepFilter);
+
+    const dependents = filteredSteps.filter(( { dependsOn }) => dependsOn.length);
+    for (const dependent of dependents) {
+      const indexOfDependent = filteredSteps.indexOf(dependent);
+      for (const dependencyName of dependent.dependsOn) {
+        const indexOfDependency = filteredSteps.findIndex(step => step.name === dependencyName);
+        if (indexOfDependency < 0) {
+          errors.push(`Step '${dependencyName}' required by '${dependent.name}' is not in the pipeline`);
+        } else if (indexOfDependency > indexOfDependent) {
+          errors.push(`Step '${dependent.name}' occurs before its dependency '${dependencyName}'`);
+        }
+      }
+    }
+    return { errors, warnings };
+  }
+
   private addIntroToLog(pipelineRunOptions: PipelineRunOptions): void {
     const filteredSteps = this.filterSteps(pipelineRunOptions);
     const annotateInactive = filteredSteps.length !== this.steps.length;
@@ -122,9 +189,9 @@ export class Pipeline<I extends Dict, A extends Dict> {
         'Steps in the pipeline', ...includeIf(annotateInactive, '(● = active, ○ = inactive)'),
       ].join(' ') + ':');
       this.logger.add(this.steps.map(
-        step => [
-          ...includeIf(annotateInactive, filteredSteps.some(s => s.index === step.index) ? '●' : '○'),
-          `${(step.index + 1).toString()}.`,
+        (step, index) => [
+          ...includeIf(annotateInactive, filteredSteps.includes(step) ? '●' : '○'),
+          `${(index + 1)}.`,
           step.name,
         ].join(' ')
       ).join('\n'), { sectionBreakAfter: true });

@@ -3,6 +3,7 @@ import { makeTempDir } from '@skypilot/sugarbowl';
 
 import type { Dict, MaybePromise } from 'src/lib/types';
 import { Pipeline } from '../Pipeline';
+import type { StepFilter } from '../Pipeline';
 
 const logDir = makeTempDir('Pipeline-class', { baseDir: 'Pipeline-package' });
 
@@ -25,16 +26,44 @@ describe('Pipeline class', () => {
     });
   });
 
-  describe('addStep', () => {
-    it('should add a Step to the Pipeline instance', async () => {
+  describe('addStep(:Step | :StepParams)', () => {
+    it('given a Step created by the Pipeline, should add it to the Pipeline instance', async () => {
+      const pipeline = new Pipeline();
+      const stepOutput = { a: 1 };
+
+      const step = pipeline.createStep({ name: 'test-step', handle: () => stepOutput });
+      pipeline.addStep(step);
+
+      expect(pipeline.steps).toHaveLength(1);
+
+      // Prove that the step is part of the pipeline
+      const finalValue = await pipeline.run();
+      expect(finalValue).toStrictEqual(stepOutput);
+    });
+
+    it('given StepParams, should create a Step with them & add it to the Pipeline instance', async () => {
       const pipeline = new Pipeline();
       const stepOutput = { a: 1 };
 
       pipeline.addStep({ handle: () => stepOutput });
 
+      expect(pipeline.steps).toHaveLength(1);
+
       // Prove that the step is part of the pipeline
       const finalValue = await pipeline.run();
       expect(finalValue).toStrictEqual(stepOutput);
+    });
+
+    it('should refuse to add a step created in a different Pipeline', () => {
+      const pipeline = new Pipeline();
+      const otherPipeline = new Pipeline();
+      const stepOutput = { a: 1 };
+
+      const step = pipeline.createStep({ name: 'test-step', handle: () => stepOutput });
+
+      expect(() => {
+        otherPipeline.addStep(step);
+      }).toThrow('The step was created in a different pipeline');
     });
 
     it('can chain method calls', async () => {
@@ -85,6 +114,54 @@ describe('Pipeline class', () => {
 
       const writtenLog = fs.readFileSync(fullFilePath, { encoding: 'utf-8' });
       expect(writtenLog).toMatch(message);
+    });
+  });
+
+  describe('createStep(:StepParams)', () => {
+    it('should create & return a Step without adding it to the Pipeline', async () => {
+      const pipeline = new Pipeline();
+      const stepOutput = { a: 1 };
+
+      const step = pipeline.createStep({ name: 'test-step', handle: () => stepOutput });
+      expect(step.name).toBe('test-step');
+
+      // Prove that the step is not part of the pipeline
+      expect(pipeline.steps).toHaveLength(0);
+      const finalValue = await pipeline.run();
+      expect(finalValue).toStrictEqual({});
+    });
+  });
+
+  describe('filterSteps()', () => {
+    it('when the includeSteps option is used, should exclude all other steps', () => {
+      const pipeline = new Pipeline();
+      pipeline.addStep({ handle: () => ({}) });
+
+      expect(pipeline.filterSteps({ includeSteps: [] })).toHaveLength(0);
+    });
+
+    it('steps with excludeByDefault should be excluded unless included by includeSteps', () => {
+      const pipeline = new Pipeline();
+      pipeline.addStep({ name: 'step-1', handle: () => ({ step: 1 }), excludeByDefault: true });
+      pipeline.addStep({ name: 'step-2', handle: () => ({ step: 2 }) });
+      pipeline.addStep({ name: 'step-3', handle: () => ({ step: 3 }), excludeByDefault: true });
+
+      {
+        const filteredStepNames = pipeline.filterSteps().map(step => step.name);
+        expect(filteredStepNames).toStrictEqual(['step-2']);
+      }
+      {
+        const filteredStepNames = pipeline.filterSteps({ slice: [0, 3] }).map(step => step.name);
+        expect(filteredStepNames).toStrictEqual(['step-2']);
+      }
+      {
+        const filteredStepNames = pipeline.filterSteps({ excludeSteps: ['step-3'] }).map(step => step.name);
+        expect(filteredStepNames).toStrictEqual(['step-2']);
+      }
+      {
+        const filteredStepNames = pipeline.filterSteps({ includeSteps: ['step-1', 'step-2'] }).map(step => step.name);
+        expect(filteredStepNames).toStrictEqual(['step-1', 'step-2']);
+      }
     });
   });
 
@@ -228,6 +305,77 @@ describe('Pipeline class', () => {
         // Data captured up to the time of the error should be in the context
         expect(pipeline.context).toStrictEqual({ goodStep: 'this should be saved' });
       }
+    });
+
+    it('if validation fails, should reject', async () => {
+      const pipeline = new Pipeline()
+        .addStep({ handle: () => ({}), dependsOn: ['dependency'] });
+
+      await expect(pipeline.run()).rejects.toThrow();
+    });
+  });
+
+  describe('validate(:StepFilters)', () => {
+    it('when no step has a dependency, should return an empty errors array', () => {
+      const pipeline = new Pipeline();
+      pipeline.addStep({ handle: () => ({}) });
+
+      const { errors } = pipeline.validate();
+      expect(errors).toHaveLength(0);
+    });
+
+    it('when no included step has a dependency, should return an empty errors array', () => {
+      const pipeline = new Pipeline();
+      pipeline.addStep({ name: 'dependent', handle: () => ({}), dependsOn: ['dependency'] });
+
+      const { errors } = pipeline.validate({ includeSteps: [] });
+      expect(errors).toHaveLength(0);
+    });
+
+    it('when a dependency occurs before its dependent, should return an empty errors array', () => {
+      const pipeline = new Pipeline();
+      pipeline.addStep({ name: 'dependency', handle: () => ({}) });
+      pipeline.addStep({ name: 'dependent', handle: () => ({}), dependsOn: ['dependency'] });
+
+      const { errors } = pipeline.validate();
+
+      expect(errors).toHaveLength(0);
+    });
+
+    it('when a dependency occurs after its dependent, should return an error message', () => {
+      const pipeline = new Pipeline();
+      pipeline.addStep({ name: 'dependent', handle: () => ({}), dependsOn: ['dependency'] });
+      pipeline.addStep({ name: 'dependency', handle: () => ({}) });
+
+      const { errors } = pipeline.validate();
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toBe("Step 'dependent' occurs before its dependency 'dependency'");
+    });
+
+    it('when required dependencies are excluded, should report each in the errors array', () => {
+      const pipeline = new Pipeline();
+      pipeline.addStep({ name: 'dependency1', handle: () => ({}) });
+      pipeline.addStep({ name: 'dependency2', handle: () => ({}) });
+      pipeline.addStep({ name: 'dependent', handle: () => ({}), dependsOn: ['dependency1', 'dependency2'] });
+
+      const stepFilters: StepFilter[] = [
+        { slice: [-2] },
+        { includeSteps: ['dependency2', 'dependent'] },
+        { excludeSteps: ['dependency1'] },
+      ];
+      stepFilters.forEach(stepFilter => {
+        const { errors } = pipeline.validate(stepFilter);
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toBe("Step 'dependency1' required by 'dependent' is not in the pipeline");
+      });
+
+      const stepFilter = { includeSteps: ['dependent'] };
+      const { errors } = pipeline.validate(stepFilter);
+      expect(errors).toStrictEqual([
+        "Step 'dependency1' required by 'dependent' is not in the pipeline",
+        "Step 'dependency2' required by 'dependent' is not in the pipeline",
+      ]);
     });
   });
 });

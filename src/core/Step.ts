@@ -1,5 +1,3 @@
-import type { Integer } from '@skypilot/common-types';
-
 import type { Fragment, Interim, MaybePromise } from 'src/lib/types';
 import type { Logger } from 'src/logger/Logger';
 import type { Pipeline } from './Pipeline';
@@ -10,28 +8,28 @@ export interface Handles {
 
 export type Handler<I, A> = (context: Interim<I, A>, handles: Handles) => MaybePromise<Fragment<I, A> | void>;
 
-interface PipelineStepParams<I, A> {
-  index: Integer;
-  pipeline: Pipeline<I, A>;
-}
-
 export interface StepParams<I, A> {
+  excludeByDefault?: boolean;
   handle: Handler<I, A>;
-  name?: string;
+  name: string;
+  dependsOn?: string[];
 }
 
 export class Step<I, A> {
-  index: Integer; // index in the parent's array of steps
+  dependsOn: string[]; // names of steps that must be run before this step
+  excludeByDefault: boolean; // if true, don't include unless the step is explicitly named in the run options
   name: string;
+  pipeline: Pipeline<I, A>;
 
   private readonly handle: Handler<I, A>;
-  private readonly pipeline: Pipeline<I, A>;
 
-  constructor(stepParams: StepParams<I, A> & PipelineStepParams<I, A>) {
-    const { pipeline, handle, index, name = `Unnamed step ${(index + 1).toString()}` } = stepParams;
+  // TODO: When typings are correctly handled, allow the `Step` to be created independently of a `Pipeline`
+  constructor(stepParams: StepParams<I, A> & { pipeline: Pipeline<I, A> }) {
+    const { dependsOn = [], excludeByDefault = false, handle, name, pipeline } = stepParams;
 
+    this.dependsOn = dependsOn;
+    this.excludeByDefault = excludeByDefault;
     this.handle = handle || (context => context);
-    this.index = index;
     this.name = name;
     this.pipeline = pipeline;
   }
