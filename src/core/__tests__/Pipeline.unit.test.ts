@@ -25,16 +25,44 @@ describe('Pipeline class', () => {
     });
   });
 
-  describe('addStep', () => {
-    it('should add a Step to the Pipeline instance', async () => {
+  describe('addStep(:Step | :StepParams)', () => {
+    it('given a Step created by the Pipeline, should add it to the Pipeline instance', async () => {
+      const pipeline = new Pipeline();
+      const stepOutput = { a: 1 };
+
+      const step = pipeline.createStep({ name: 'test-step', handle: () => stepOutput });
+      pipeline.addStep(step);
+
+      expect(pipeline.steps).toHaveLength(1);
+
+      // Prove that the step is part of the pipeline
+      const finalValue = await pipeline.run();
+      expect(finalValue).toStrictEqual(stepOutput);
+    });
+
+    it('given StepParams, should create a Step with them & add it to the Pipeline instance', async () => {
       const pipeline = new Pipeline();
       const stepOutput = { a: 1 };
 
       pipeline.addStep({ handle: () => stepOutput });
 
+      expect(pipeline.steps).toHaveLength(1);
+
       // Prove that the step is part of the pipeline
       const finalValue = await pipeline.run();
       expect(finalValue).toStrictEqual(stepOutput);
+    });
+
+    it('should refuse to add a step created in a different Pipeline', () => {
+      const pipeline = new Pipeline();
+      const otherPipeline = new Pipeline();
+      const stepOutput = { a: 1 };
+
+      const step = pipeline.createStep({ name: 'test-step', handle: () => stepOutput });
+
+      expect(() => {
+        otherPipeline.addStep(step);
+      }).toThrow('The step was created in a different pipeline');
     });
 
     it('can chain method calls', async () => {
@@ -85,6 +113,21 @@ describe('Pipeline class', () => {
 
       const writtenLog = fs.readFileSync(fullFilePath, { encoding: 'utf-8' });
       expect(writtenLog).toMatch(message);
+    });
+  });
+
+  describe('createStep(:StepParams)', () => {
+    it('should create & return a Step without adding it to the Pipeline', async () => {
+      const pipeline = new Pipeline();
+      const stepOutput = { a: 1 };
+
+      const step = pipeline.createStep({ name: 'test-step', handle: () => stepOutput });
+      expect(step.name).toBe('test-step');
+
+      // Prove that the step is not part of the pipeline
+      expect(pipeline.steps).toHaveLength(0);
+      const finalValue = await pipeline.run();
+      expect(finalValue).toStrictEqual({});
     });
   });
 
