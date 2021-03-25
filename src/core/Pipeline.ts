@@ -97,13 +97,13 @@ export class Pipeline<I extends Dict, A extends Dict> {
     const [sliceStart, sliceEnd] = slice;
     const sliceParams = [sliceStart, ...includeIf(sliceEnd)];
 
-    const filter = (() => {
+    const filter = ((): ((step: Step<I, A>) => boolean) => {
       if (excludeSteps) {
-        return ({ name }: { name: string }) => !excludeSteps.includes(name);
+        return step => !excludeSteps.includes(step.name) && !step.excludeByDefault;
       } else if (includeSteps) {
-        return ({ name }: { name: string }) => includeSteps.includes(name);
+        return step => includeSteps.includes(step.name);
       } else {
-        return () => true;
+        return step => !step.excludeByDefault;
       }
     })();
 

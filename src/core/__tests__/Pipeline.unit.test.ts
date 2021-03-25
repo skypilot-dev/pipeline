@@ -132,6 +132,39 @@ describe('Pipeline class', () => {
     });
   });
 
+  describe('filterSteps()', () => {
+    it('when the includeSteps option is used, should exclude all other steps', () => {
+      const pipeline = new Pipeline();
+      pipeline.addStep({ handle: () => ({}) });
+
+      expect(pipeline.filterSteps({ includeSteps: [] })).toHaveLength(0);
+    });
+
+    it('steps with excludeByDefault should be excluded unless included by includeSteps', () => {
+      const pipeline = new Pipeline();
+      pipeline.addStep({ name: 'step-1', handle: () => ({ step: 1 }), excludeByDefault: true });
+      pipeline.addStep({ name: 'step-2', handle: () => ({ step: 2 }) });
+      pipeline.addStep({ name: 'step-3', handle: () => ({ step: 3 }), excludeByDefault: true });
+
+      {
+        const filteredStepNames = pipeline.filterSteps().map(step => step.name);
+        expect(filteredStepNames).toStrictEqual(['step-2']);
+      }
+      {
+        const filteredStepNames = pipeline.filterSteps({ slice: [0, 3] }).map(step => step.name);
+        expect(filteredStepNames).toStrictEqual(['step-2']);
+      }
+      {
+        const filteredStepNames = pipeline.filterSteps({ excludeSteps: ['step-3'] }).map(step => step.name);
+        expect(filteredStepNames).toStrictEqual(['step-2']);
+      }
+      {
+        const filteredStepNames = pipeline.filterSteps({ includeSteps: ['step-1', 'step-2'] }).map(step => step.name);
+        expect(filteredStepNames).toStrictEqual(['step-1', 'step-2']);
+      }
+    });
+  });
+
   describe('run()', () => {
     it('when there are no steps, should return the initial context', async () => {
       // Pipeline without context
