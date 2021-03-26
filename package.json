@@ -41,7 +41,7 @@
   "devDependencies": {
     "@skypilot/common-types": "^2.2.1",
     "@skypilot/toolchain": "^5.2.2",
-    "type-fest": "^1.0.0"
+    "type-fest": "^1.0.1"
   },
   "publishConfig": {
     "access": "restricted"
@@ -51,7 +51,7 @@
   ],
   "types": "lib/index.d.ts",
   "dependencies": {
-    "@skypilot/sugarbowl": "^3.2.0",
+    "@skypilot/sugarbowl": "^3.3.0",
     "dot-prop": "^6.0.1",
     "serialize-error": "^8.0.1"
   }
