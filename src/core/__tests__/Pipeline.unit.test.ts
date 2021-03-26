@@ -4,6 +4,7 @@ import { makeTempDir } from '@skypilot/sugarbowl';
 import type { Dict, MaybePromise } from 'src/lib/types';
 import { Pipeline } from '../Pipeline';
 import type { StepFilter } from '../Pipeline';
+import { Step } from '../Step';
 
 const logDir = makeTempDir('Pipeline-class', { baseDir: 'Pipeline-package' });
 
@@ -52,6 +53,18 @@ describe('Pipeline class', () => {
       // Prove that the step is part of the pipeline
       const finalValue = await pipeline.run();
       expect(finalValue).toStrictEqual(stepOutput);
+    });
+
+    it('can add an independently created step', () => {
+      type A = Dict<string>;
+      type I = Dict<string>;
+
+      const pipeline = new Pipeline<I, A>();
+      const step = new Step<I, A>({ name: 'independent-step', handle: () => ({} ) });
+
+      pipeline.addStep(step);
+
+      expect(pipeline.steps.find(({ name }) => name === step.name)).toBe(step);
     });
 
     it('should refuse to add a step created in a different Pipeline', () => {

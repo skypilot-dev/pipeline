@@ -63,10 +63,13 @@ export class Pipeline<I extends Dict, A extends Dict> {
   addStep(stepParams: Step<I, A> | SetOptional<StepParams<I, A>, 'name'>): this {
     const stepInstance = stepParams instanceof Step
       ? ((): Step<I, A> => {
-        /* TODO: Possibly allow `Step` instances to be created independently. For now, this safeguard is in
-         * place to help TypeScript infer typings. */
         if (stepParams.pipeline !== this) {
-          throw new Error('The step was created in a different pipeline');
+          if (stepParams.pipeline) {
+            /* TODO: Probably the old pipeline can simply be replaced. But for now this guard is in
+             * place to help TypeScript with typings. */
+            throw new Error('The step was created in a different pipeline');
+          }
+          stepParams.pipeline = this;
         }
         return stepParams;
       })()

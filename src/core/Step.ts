@@ -19,12 +19,12 @@ export class Step<I, A> {
   dependsOn: string[]; // names of steps that must be run before this step
   excludeByDefault: boolean; // if true, don't include unless the step is explicitly named in the run options
   name: string;
-  pipeline: Pipeline<I, A>;
+  pipeline?: Pipeline<I, A>;
 
   private readonly handle: Handler<I, A>;
 
   // TODO: When typings are correctly handled, allow the `Step` to be created independently of a `Pipeline`
-  constructor(stepParams: StepParams<I, A> & { pipeline: Pipeline<I, A> }) {
+  constructor(stepParams: StepParams<I, A> & { pipeline?: Pipeline<I, A> }) {
     const { dependsOn = [], excludeByDefault = false, handle, name, pipeline } = stepParams;
 
     this.dependsOn = dependsOn;
@@ -34,10 +34,12 @@ export class Step<I, A> {
     this.pipeline = pipeline;
   }
 
-  async run(context: Interim<I, A>, handles: Handles): Promise<void> {
+  async run(context: Interim<I, A>, handles: Handles): Promise<Interim<I, A>> {
     const result = await this.handle(context, handles);
     if (result) {
-      this.pipeline.updateContext(result);
+      this.pipeline?.updateContext(result);
+      return result;
     }
+    return {};
   }
 }
