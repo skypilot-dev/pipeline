@@ -116,7 +116,7 @@ describe('Pipeline class', () => {
       const message = 'This step writes to the log';
 
       pipeline.addStep({
-        handle: (_context, { logger }) => logger.add(message),
+        handle: (_context, { logger }) => logger?.add(message),
       });
       await pipeline.run();
 

@@ -2,8 +2,9 @@ import type { Fragment, Interim, MaybePromise } from 'src/lib/types';
 import type { Logger } from 'src/logger/Logger';
 import type { Pipeline } from './Pipeline';
 
+// TODO: Possibly remove the `logger` and expect the pipeline to provide it if needd (like any other handle)
 export interface Handles {
-  logger: Logger;
+  logger?: Logger;
 }
 
 export type Handler<I, A> = (context: Interim<I, A>, handles: Handles) => MaybePromise<Fragment<I, A> | void>;
@@ -34,7 +35,7 @@ export class Step<I, A> {
     this.pipeline = pipeline;
   }
 
-  async run(context: Interim<I, A>, handles: Handles): Promise<Interim<I, A>> {
+  async run(context: Interim<I, A> = {}, handles: Handles = {}): Promise<Interim<I, A>> {
     const result = await this.handle(context, handles);
     if (result) {
       this.pipeline?.updateContext(result);
