@@ -67,18 +67,6 @@ describe('Pipeline class', () => {
       expect(pipeline.steps.find(({ name }) => name === step.name)).toBe(step);
     });
 
-    it('should refuse to add a step created in a different Pipeline', () => {
-      const pipeline = new Pipeline();
-      const otherPipeline = new Pipeline();
-      const stepOutput = { a: 1 };
-
-      const step = pipeline.createStep({ name: 'test-step', handle: () => stepOutput });
-
-      expect(() => {
-        otherPipeline.addStep(step);
-      }).toThrow('The step was created in a different pipeline');
-    });
-
     it('can chain method calls', async () => {
       const pipeline = new Pipeline();
       const step1Output = { a: 1 };
@@ -325,6 +313,19 @@ describe('Pipeline class', () => {
         .addStep({ handle: () => ({}), dependsOn: ['dependency'] });
 
       await expect(pipeline.run()).rejects.toThrow();
+    });
+  });
+
+  describe('signal(:Signal)', () => {
+    it('can accept a signal from a step', async () => {
+      const pipeline = new Pipeline();
+      pipeline.addStep({
+        handle: (_context, { pipeline }) => {
+          pipeline?.signal('StopPipeline');
+        },
+      });
+      await pipeline.run();
+      expect(pipeline.signals).toContain('StopPipeline');
     });
   });
 

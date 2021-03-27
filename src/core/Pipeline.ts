@@ -33,6 +33,8 @@ export interface PipelineOptions {
 
 export type StepFilter = (ExcludeSteps | IncludeSteps) & SliceSteps;
 
+export type Signal = 'StopPipeline';
+
 interface ValidationResult {
   errors: string[];
   warnings: string[];
@@ -40,6 +42,7 @@ interface ValidationResult {
 
 export class Pipeline<I extends Dict, A extends Dict> {
   readonly logger: Logger;
+  signals: Signal[] = [];
   steps: Step<I, A>[] = [];
 
   private _context: Interim<I, A> = {};
@@ -62,17 +65,7 @@ export class Pipeline<I extends Dict, A extends Dict> {
   addStep(stepParams: SetOptional<StepParams<I, A>, 'name'>): this;
   addStep(stepParams: Step<I, A> | SetOptional<StepParams<I, A>, 'name'>): this {
     const stepInstance = stepParams instanceof Step
-      ? ((): Step<I, A> => {
-        if (stepParams.pipeline !== this) {
-          if (stepParams.pipeline) {
-            /* TODO: Probably the old pipeline can simply be replaced. But for now this guard is in
-             * place to help TypeScript with typings. */
-            throw new Error('The step was created in a different pipeline');
-          }
-          stepParams.pipeline = this;
-        }
-        return stepParams;
-      })()
+      ? stepParams
       : ((): Step<I, A> => {
         const { name = `step-${this.steps.length}` } = stepParams;
         if (this.steps.find(step => step.name === name)) {
@@ -136,7 +129,7 @@ export class Pipeline<I extends Dict, A extends Dict> {
         `Started step ${filteredSteps.indexOf(step) + 1}: ${step.name}`,
         { prependTimestamp: true, sectionBreakBefore: true, sectionBreakAfter: true }
       );
-      await step.run(this.context, { logger: this.logger })
+      await step.run(this.context, { logger: this.logger, pipeline: this })
         .catch(error => {
           // Save the error to the log and write the log, so that existing log entries aren't lost
           // const { stack, ...errorRest } = error;
@@ -148,9 +141,17 @@ export class Pipeline<I extends Dict, A extends Dict> {
           // TODO: Build in optional error handling with "skip" and "stop" options
           throw error;
         });
+      if (this.signals.includes('StopPipeline')) {
+        break;
+      }
     }
     this.logger.write();
     return this._context;
+  }
+
+  // Add a signal to the signals queue
+  signal(signal: Signal): void {
+    this.signals.push(signal);
   }
 
   updateContext<C extends Fragment<I, A>>(partialContext: C): Interim<I, A> {
