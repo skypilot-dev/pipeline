@@ -33,6 +33,8 @@ export interface PipelineOptions {
 
 export type StepFilter = (ExcludeSteps | IncludeSteps) & SliceSteps;
 
+export type Signal = 'StopPipeline';
+
 interface ValidationResult {
   errors: string[];
   warnings: string[];
@@ -40,6 +42,7 @@ interface ValidationResult {
 
 export class Pipeline<I extends Dict, A extends Dict> {
   readonly logger: Logger;
+  signals: Signal[] = [];
   steps: Step<I, A>[] = [];
 
   private _context: Interim<I, A> = {};
@@ -138,9 +141,17 @@ export class Pipeline<I extends Dict, A extends Dict> {
           // TODO: Build in optional error handling with "skip" and "stop" options
           throw error;
         });
+      if (this.signals.includes('StopPipeline')) {
+        break;
+      }
     }
     this.logger.write();
     return this._context;
+  }
+
+  // Add a signal to the signals queue
+  signal(signal: Signal): void {
+    this.signals.push(signal);
   }
 
   updateContext<C extends Fragment<I, A>>(partialContext: C): Interim<I, A> {

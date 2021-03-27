@@ -316,6 +316,19 @@ describe('Pipeline class', () => {
     });
   });
 
+  describe('signal(:Signal)', () => {
+    it('can accept a signal from a step', async () => {
+      const pipeline = new Pipeline();
+      pipeline.addStep({
+        handle: (_context, { pipeline }) => {
+          pipeline?.signal('StopPipeline');
+        },
+      });
+      await pipeline.run();
+      expect(pipeline.signals).toContain('StopPipeline');
+    });
+  });
+
   describe('validate(:StepFilters)', () => {
     it('when no step has a dependency, should return an empty errors array', () => {
       const pipeline = new Pipeline();
