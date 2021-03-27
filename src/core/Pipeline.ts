@@ -62,17 +62,7 @@ export class Pipeline<I extends Dict, A extends Dict> {
   addStep(stepParams: SetOptional<StepParams<I, A>, 'name'>): this;
   addStep(stepParams: Step<I, A> | SetOptional<StepParams<I, A>, 'name'>): this {
     const stepInstance = stepParams instanceof Step
-      ? ((): Step<I, A> => {
-        if (stepParams.pipeline !== this) {
-          if (stepParams.pipeline) {
-            /* TODO: Probably the old pipeline can simply be replaced. But for now this guard is in
-             * place to help TypeScript with typings. */
-            throw new Error('The step was created in a different pipeline');
-          }
-          stepParams.pipeline = this;
-        }
-        return stepParams;
-      })()
+      ? stepParams
       : ((): Step<I, A> => {
         const { name = `step-${this.steps.length}` } = stepParams;
         if (this.steps.find(step => step.name === name)) {
@@ -136,7 +126,7 @@ export class Pipeline<I extends Dict, A extends Dict> {
         `Started step ${filteredSteps.indexOf(step) + 1}: ${step.name}`,
         { prependTimestamp: true, sectionBreakBefore: true, sectionBreakAfter: true }
       );
-      await step.run(this.context, { logger: this.logger })
+      await step.run(this.context, { logger: this.logger, pipeline: this })
         .catch(error => {
           // Save the error to the log and write the log, so that existing log entries aren't lost
           // const { stack, ...errorRest } = error;
