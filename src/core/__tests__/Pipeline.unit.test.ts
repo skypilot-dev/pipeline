@@ -314,6 +314,23 @@ describe('Pipeline class', () => {
 
       await expect(pipeline.run()).rejects.toThrow();
     });
+
+    it('if the StopPipeline signal is issued in a step, the pipeline should stop after that step', async () => {
+      const pipeline = new Pipeline()
+        .addStep({ name: 'step-a', handle: () => ({ a: 1 }) })
+        .addStep({
+          name: 'step-b',
+          handle: (_context, { pipeline }) => {
+            pipeline?.signal('StopPipeline');
+            return { b: 2 };
+          },
+        })
+        .addStep({ name: 'step-c', handle: () => ({ c: 3 }) });
+
+      const context = await pipeline.run();
+
+      expect(context).toStrictEqual({ a: 1, b: 2 });
+    });
   });
 
   describe('signal(:Signal)', () => {
