@@ -24,12 +24,16 @@ export interface InputOptions {
   type?: string;
 }
 
+export interface ValidationOptions {
+  logLevel?: LogLevel | null;
+}
+
 export interface StepParams<I, A> {
   dependsOn?: string[];
   excludeByDefault?: boolean;
   handle?: Handler<I, A>;
   inputs?: Dict<InputOptions>;
-  logLevel?: LogLevel;
+  logLevel?: LogLevel | null;
   name?: string;
 }
 
@@ -76,11 +80,13 @@ export class Step<I, A> {
     return {};
   }
 
-  isInputValid(context: Interim<I, A>): boolean {
-    return this.validateInputs(context).success;
+  isInputValid(context: Interim<I, A>, options: ValidationOptions = {}): boolean {
+    return this.validateInputs(context, options).success;
   }
 
-  validateInputs(context: Interim<I, A>): ValidationResult {
+  validateInputs(context: Interim<I, A>, options: ValidationOptions = {}): ValidationResult {
+    const { logLevel = this.logLevel } = options;
+
     const validationResult = new ValidationResult();
     for (const [path, options] of Object.entries(this.inputs)) {
       const { required } = options;
@@ -96,7 +102,7 @@ export class Step<I, A> {
     const { highestLevel } = validationResult;
     if (
       !isUndefined(highestLevel)
-      && ValidationResult.compareLevels(validationResult.highestLevel, this.logLevel) >= 0
+      && ValidationResult.compareLevels(validationResult.highestLevel, logLevel) >= 0
     ) {
       // eslint-disable-next-line no-console
       console[highestLevel](validationResult);
