@@ -1,5 +1,6 @@
 import type { Integer } from '@skypilot/common-types';
 import { includeIf } from '@skypilot/sugarbowl';
+import deepmerge from 'deepmerge';
 import { serializeError } from 'serialize-error';
 import type { SetOptional } from 'type-fest';
 
@@ -155,10 +156,10 @@ export class Pipeline<I extends Dict, A extends Dict> {
   }
 
   updateContext<C extends Fragment<I, A>>(partialContext: C): Interim<I, A> {
-    const mergedContext = {
-      ...this._context,
-      ...partialContext,
-    };
+    // FIXME: Fix typings to avoid ts-ignore
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    const mergedContext = deepmerge(this._context, partialContext);
     this._context = mergedContext;
     return mergedContext;
   }

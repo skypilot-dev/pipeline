@@ -346,6 +346,64 @@ describe('Pipeline class', () => {
     });
   });
 
+  describe('updateContext()', () => {
+    it('should recursively merge objects', () => {
+      const initialContext = {
+        o: { b: 1 },
+      };
+      const contextUpdate = {
+        o: { c: 2 },
+      };
+      const expectedContext = {
+        o: { b: 1, c: 2 },
+      };
+      const pipeline = new Pipeline(initialContext);
+
+      const newContext = pipeline.updateContext(contextUpdate);
+
+      expect(newContext).toStrictEqual(expectedContext);
+      expect(pipeline.context).toStrictEqual(expectedContext);
+    });
+
+    it('should concatenate arrays', () => {
+      const initialContext = {
+        o: { a: [1] },
+      };
+      const contextUpdate = {
+        o: { a: [2] },
+      };
+      const expectedContext = {
+        o: { a: [1, 2] },
+      };
+      const pipeline = new Pipeline(initialContext);
+
+      pipeline.updateContext(contextUpdate);
+
+      expect(pipeline.context).toStrictEqual(expectedContext);
+    });
+
+    it('should preserve functions', () => {
+      const originalFn = (): boolean => false;
+      const newFn = (): boolean => true;
+
+      const initialContext = {
+        fn: originalFn,
+      };
+      const contextUpdate = {
+        fn: newFn,
+      };
+      const expectedContext = {
+        fn: newFn,
+      };
+      const pipeline = new Pipeline(initialContext);
+
+      pipeline.updateContext(contextUpdate);
+
+      expect(pipeline.context).toStrictEqual(expectedContext);
+      expect(pipeline.context.fn()).toBe(true);
+    });
+  });
+
   describe('validate(:StepFilters)', () => {
     it('when no step has a dependency, should return an empty errors array', () => {
       const pipeline = new Pipeline();
