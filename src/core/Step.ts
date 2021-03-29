@@ -65,6 +65,10 @@ export class Step<I, A> {
     this.name = name;
   }
 
+  isInputValid(context: Interim<I, A>, options: ValidationOptions = {}): boolean {
+    return this.validateInputs(context, options).success;
+  }
+
   async run(context: Interim<I, A> = {}, handles: Handles<I, A> = {}): Promise<Interim<I, A>> {
     if (!this.isInputValid(context)) {
       throw new ValidationError(
@@ -78,10 +82,6 @@ export class Step<I, A> {
       return result;
     }
     return {};
-  }
-
-  isInputValid(context: Interim<I, A>, options: ValidationOptions = {}): boolean {
-    return this.validateInputs(context, options).success;
   }
 
   validateInputs(context: Interim<I, A>, options: ValidationOptions = {}): ValidationResult {

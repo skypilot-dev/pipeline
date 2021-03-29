@@ -52,6 +52,7 @@
   "types": "lib/index.d.ts",
   "dependencies": {
     "@skypilot/sugarbowl": "^3.4.0-next.1",
+    "deepmerge": "^4.2.2",
     "dot-prop": "^6.0.1",
     "serialize-error": "^8.0.1"
   }
