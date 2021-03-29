@@ -1,5 +1,6 @@
 // IMPORTS
-import { ValidationResult } from '@skypilot/sugarbowl';
+import { isUndefined, ValidationResult } from '@skypilot/sugarbowl';
+import type { LogLevel } from '@skypilot/sugarbowl';
 import { has } from 'dot-prop';
 
 import { ValidationError  } from 'src/lib/classes/ValidationError';
@@ -28,6 +29,7 @@ export interface StepParams<I, A> {
   excludeByDefault?: boolean;
   handle?: Handler<I, A>;
   inputs?: Dict<InputOptions>;
+  logLevel?: LogLevel;
   name?: string;
 }
 
@@ -36,6 +38,7 @@ export class Step<I, A> {
   dependsOn: string[]; // names of steps that must be run before this step
   excludeByDefault: boolean; // if true, don't include unless the step is explicitly named in the run options
   inputs: Dict<InputOptions>;
+  logLevel: LogLevel | null;
   name: string;
 
   private readonly handle?: Handler<I, A>;
@@ -45,6 +48,7 @@ export class Step<I, A> {
       dependsOn = [],
       excludeByDefault = false,
       handle,
+      logLevel = 'warn',
       inputs = {},
       name = 'unnamed',
     } = stepParams;
@@ -52,6 +56,7 @@ export class Step<I, A> {
     this.dependsOn = dependsOn;
     this.excludeByDefault = excludeByDefault;
     this.handle = handle;
+    this.logLevel = logLevel;
     this.inputs = inputs;
     this.name = name;
   }
@@ -87,6 +92,14 @@ export class Step<I, A> {
           { id: path },
         );
       }
+    }
+    const { highestLevel } = validationResult;
+    if (
+      !isUndefined(highestLevel)
+      && ValidationResult.compareLevels(validationResult.highestLevel, this.logLevel) >= 0
+    ) {
+      // eslint-disable-next-line no-console
+      console[highestLevel](validationResult);
     }
     return validationResult;
   }
