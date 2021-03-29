@@ -11,6 +11,7 @@ describe('Step class', () => {
       const step = new Step({
         name: 'test-step',
         handle: () => ({}),
+        logLevel: null, // here and in other tests, set logLevel to `null` to avoid console spam
       });
 
       expect(step).toBeInstanceOf(Step);
@@ -23,6 +24,7 @@ describe('Step class', () => {
       const step = new Step({
         name: 'test-step',
         handle: () => ({ a: 1 }),
+        logLevel: null,
       });
 
       await expect(
@@ -39,6 +41,7 @@ describe('Step class', () => {
         inputs: {
           'input': { required: true },
         },
+        logLevel: null,
       });
 
       await expect(step.run({ input: 1 })).resolves.not.toThrow();
@@ -54,6 +57,7 @@ describe('Step class', () => {
         inputs: {
           'branch.leaf': { required: true },
         },
+        logLevel: null,
       });
 
       const validationResult = step.validateInputs({ branch: { leaf: 1 } });
@@ -70,6 +74,7 @@ describe('Step class', () => {
           'branch.leaf1': { required: true },
           'branch.leaf2': { required: true },
         },
+        logLevel: null,
       });
 
       const validationResult = step.validateInputs({});
